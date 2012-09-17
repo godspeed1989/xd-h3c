@@ -21,13 +21,13 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		fprintf(stderr, "%s\n", "网卡异常！请检查网卡名称是否正确，网线是否插好！");
 		exit(-1);
 	}
-    /* 打开适配器(网卡) */
+	/* 打开适配器(网卡) */
 	adhandle = pcap_open_live(DeviceName, 65536, 1, DefaultTimeout, errbuf);
 	if (adhandle==NULL) {
 		fprintf(stderr, "%s\n", errbuf);
 		exit(-1);
 	}
-    /* 查询本机MAC地址 */
+	/* 查询本机MAC地址 */
 	GetDeviceMac(MAC, DeviceName);
 
 	/* 设置过滤器：
@@ -36,8 +36,8 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 	 */
 	sprintf(FilterStr, "(ether proto 0x888e) and (ether dst host %02x:%02x:%02x:%02x:%02x:%02x)",
 				MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
-    pcap_compile(adhandle, &fcode, FilterStr, 1, 0xff);
-    pcap_setfilter(adhandle, &fcode);
+	pcap_compile(adhandle, &fcode, FilterStr, 1, 0xff);
+	pcap_setfilter(adhandle, &fcode);
 
 	START_AUTHENTICATION:
 	{
@@ -56,8 +56,8 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 			ret = pcap_next_ex(adhandle, &header, &captured);
 			if (ret==1 && (EAP_Code)captured[18]==REQUEST)
 				break;
-            else
-            {
+			else
+			{
 				if(cnt > 50)
 				{
 					fprintf(stderr, "%s\n", "服务器未响应。");
@@ -79,7 +79,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		 * 默认以单播方式应答802.1X认证设备发来的Request */
 		memcpy(DstMAC+0, captured+6, 6);	//拷贝交换机MAC
 		memcpy(ethhdr+0, captured+6, 6);	//拷贝交换机MAC至发包前6位
-		memcpy(ethhdr+6, MAC, 6);			//接下来6位为本机MAC
+		memcpy(ethhdr+6, MAC, 6);		//接下来6位为本机MAC
 		ethhdr[12] = 0x88;
 		ethhdr[13] = 0x8e;
 		
