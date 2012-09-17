@@ -419,15 +419,12 @@ void FillMD5Area(uint8_t* digest, uint8_t id,
 	size_t msglen;
 	size_t passlen;
 	passlen = strlen(passwd);
-        msglen = 1 + passlen + 16;
-        assert(sizeof(msgbuf) >= msglen);
-        msgbuf[0] = id;
-        memcpy(msgbuf+1, passwd, passlen);
-        memcpy(msgbuf+1+passlen, srcMD5, 16);
-    // Calls libgcrypt function for MD5 generation
-       gcry_md_hash_buffer(GCRY_MD_MD5, digest, msgbuf, msglen);
-
-
+	msglen = 1 + passlen + 16;
+	assert(sizeof(msgbuf) >= msglen);
+	msgbuf[0] = id;
+	memcpy(msgbuf+1, passwd, passlen);
+	memcpy(msgbuf+1+passlen, srcMD5, 16);
+	gcry_md_hash_buffer(GCRY_MD_MD5, digest, msgbuf, msglen);
 }
 
 /* 从MAC地址获取IP */
