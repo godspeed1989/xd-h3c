@@ -28,7 +28,7 @@ static uint8_t DstMAC[6];	//交换机MAC
 
 /* 自定义报文结构 */
 typedef enum {REQUEST=1, RESPONSE=2, SUCCESS=3, FAILURE=4, H3CDATA=10} EAP_Code;
-typedef enum {IDENTITY=1, NOTIFICATION=2, MD5=4, AVAILABLE=20} EAP_Type;
+typedef enum {IDENTITY=1, NOTIFICATION=2, MD5=4, AVAILIABLE=20} EAP_Type;
 typedef uint8_t EAP_ID;
 
 /* 主认证函数 */
@@ -51,7 +51,8 @@ void ResponseMD5(pcap_t *adhandle, const uint8_t* request,
 void FillMD5Area(uint8_t* digest, uint8_t id,
 				 const char* passwd, const uint8_t* srcMD5);
 
-
+void ResponseNotification(pcap_t *handle, const uint8_t request[], 
+										  const uint8_t ethhdr[]);
 
 void FillClientVersionArea(uint8_t area[]);
 

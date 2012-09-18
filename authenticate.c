@@ -130,6 +130,11 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 						case MD5:
 							ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
 							break;
+						case NOTIFICATION:
+							ResponseNotification(adhandle, captured, ethhdr);
+							break;
+						case AVAILIABLE:
+							break;
 						default:
 							printf("[%d] Server: Request (type:%d)!\n", (EAP_ID)captured[19], (EAP_Type)captured[22]);
 							printf("Error! Unexpected request type\n");
@@ -356,6 +361,71 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
     pcap_sendpacket(handle, response, packetlen);
 }
 
+/* 使用密钥key[]对数据data[]进行异或加密
+ *（注：该函数也可反向用于解密）
+ */
+void XOR(uint8_t data[], unsigned dlen, const char key[], unsigned klen)
+{
+	unsigned int i,j;
+	/* 正序处理一遍 */
+	for (i=0; i<dlen; i++)
+		data[i] ^= key[i%klen];
+	/* 倒序处理第二遍 */
+	for (i=dlen-1,j=0; j<dlen; i--,j++)
+		data[i] ^= key[j%klen];
+}
+
+void FillWindowsVersionArea(uint8_t area[20])
+{
+	const uint8_t WinVersion[20] = "r70393861";
+
+	memcpy(area, WinVersion, 20);
+	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
+}
+void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
+{
+	uint8_t	response[67];
+
+	assert((EAP_Code)request[18] == REQUEST);
+	assert((EAP_Type)request[22] == NOTIFICATION);
+
+	// Fill Ethernet header
+	memcpy(response, ethhdr, 14);
+
+	// 802,1X Authentication
+	// {
+		response[14] = 0x1;	// 802.1X Version 1
+		response[15] = 0x0;	// Type=0 (EAP Packet)
+		response[16] = 0x00;	// Length
+		response[17] = 0x31;	//
+
+		// Extensible Authentication Protocol
+		// {
+		response[18] = (EAP_Code) RESPONSE;	// Code
+		response[19] = (EAP_ID) request[19];	// ID
+		response[20] = response[16];		// Length
+		response[21] = response[17];		//
+		response[22] = (EAP_Type) NOTIFICATION;	// Type
+
+		int i=23;
+		/* Notification Data (44 Bytes) */
+		// 其中前2+20字节为客户端版本
+		response[i++] = 0x01; // type 0x01
+		response[i++] = 22;   // lenth
+		FillClientVersionArea(response+i);
+		i += 20;
+
+		// 最后2+20字节存储加密后的Windows操作系统版本号
+		response[i++] = 0x02; // type 0x02
+		response[i++] = 22;   // length
+		FillWindowsVersionArea(response+i);
+		i += 20;
+		// }
+	// }
+
+	pcap_sendpacket(handle, response, sizeof(response));
+}
+
 //注销
 void SendLogoffPkt(char *DeviceName)
 {
@@ -386,20 +456,6 @@ void SendLogoffPkt(char *DeviceName)
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
 	printf("注销成功。\n");	
 	exit(0);
-}
-
-/* 使用密钥key[]对数据data[]进行异或加密
- *（注：该函数也可反向用于解密）
- */
-void XOR(uint8_t data[], unsigned dlen, const char key[], unsigned klen)
-{
-	unsigned int i,j;
-	/* 正序处理一遍 */
-	for (i=0; i<dlen; i++)
-		data[i] ^= key[i%klen];
-	/* 倒序处理第二遍 */
-	for (i=dlen-1,j=0; j<dlen; i--,j++)
-		data[i] ^= key[j%klen];
 }
 
 void FillClientVersionArea(uint8_t area[20])
