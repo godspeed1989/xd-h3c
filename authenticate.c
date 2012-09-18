@@ -134,6 +134,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 							ResponseNotification(adhandle, captured, ethhdr);
 							break;
 						case AVAILIABLE:
+							
 							break;
 						default:
 							printf("[%d] Server: Request (type:%d)!\n", (EAP_ID)captured[19], (EAP_Type)captured[22]);
