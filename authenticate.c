@@ -1,8 +1,6 @@
 ﻿#include "authenticate.h"
 
 /**
- * 函数：Authentication()
- *
  * 使用以太网进行802.1X认证(802.1X Authentication)
  * 该函数将不断循环，应答802.1X认证会话，直到遇到错误后才退出
  */
@@ -159,9 +157,10 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 							// E2547:接入时段限制
 							// E2553:密码错误
 							// E2602:认证会话不存在
-							// E3137:客户端版本号无效exit(-1);
+							// E3137:客户端版本号无效
+							exit(-1);
 						}
-						else 
+						else
 						{
 							printf("errtype=0x%02x\n", errtype);
 							exit(-1);
@@ -189,13 +188,28 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 						exit(0);
 					}
 				}
-				else /* 未知包的类型 */
+				else if((EAP_Code)captured[18] == H3CDATA) /* H3C数据包 */
 				{
-					printf("[%d] Server: (H3C data)\n", captured[19]);
+					const char *msg = (const char*) &captured[24];
+					printf("[%d] Server: (H3C data packet)\n", captured[19]);
+					fprintf(stderr, "%s\n", msg);
 					// TODO: 没有处理华为自定义数据包
 				}
-			}// for (;;)
-		}//LOOP
+				else if((EAP_Code)captured[18] == RESPONSE)
+				{
+					const char *msg = (const char*) &captured[24];
+					printf("[%d] Server: (response packet)\n", captured[19]);
+					fprintf(stderr, "%s\n", msg);
+					// TODO: 没有处理华为自定义数据包
+				}
+				else
+				{
+					const char *msg = (const char*) &captured[24];
+					printf("[%d] Server: (Unknown packet)\n", captured[19]);
+					fprintf(stderr, "%s\n", msg);
+				}
+			}// forever capture packet
+		}//LOOP label
 	}//START_AUTHENTICATION
 	return 0;
 }
@@ -345,71 +359,67 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 //注销
 void SendLogoffPkt(char *DeviceName)
 {
-    uint8_t packet[18];
-    pcap_t	*adhandle; // adapter handle
-    const int DefaultTimeout=60000;//设置接收超时参数，单位ms
-    char	errbuf[PCAP_ERRBUF_SIZE];
-    uint8_t	MAC[6];
-    /* 打开适配器(网卡) */
-    adhandle = pcap_open_live(DeviceName,65536,1,DefaultTimeout,errbuf);
-    if (adhandle==NULL) {
-        fprintf(stderr, "%s\n", errbuf);
-        exit(1);
-    }
-    
-    GetDeviceMac(MAC, DeviceName);
-    // Ethernet Header (14 Bytes)
-    memcpy(packet, MulticastAddr, 6);
-    memcpy(packet+6, MAC,   6);
-    packet[12] = 0x88;
-    packet[13] = 0x8e;
+	uint8_t packet[18];
+	pcap_t *adhandle; // adapter handle
+	const int DefaultTimeout=60000;//设置接收超时参数，单位ms
+	char errbuf[PCAP_ERRBUF_SIZE];
+	uint8_t MAC[6];
+	/* 打开适配器(网卡) */
+	adhandle = pcap_open_live(DeviceName,65536,1,DefaultTimeout,errbuf);
+	if (adhandle==NULL) {
+		fprintf(stderr, "%s\n", errbuf);
+		exit(-1);
+	}
 
-    // EAPOL (4 Bytes)
-    packet[14] = 0x01;	// Version=1
-    packet[15] = 0x02;	// Type=Logoff
-    packet[16] = packet[17] =0x00;// Length=0x0000
+	GetDeviceMac(MAC, DeviceName);
+	/* Ethernet frame Header (14 Bytes) */
+	memcpy(packet+0, MulticastAddr, 6); //广播下线
+	memcpy(packet+6, MAC, 6);
+	packet[12] = 0x88;
+	packet[13] = 0x8e;
 
-    // 发包
-    printf("注销成功。\n");
-    pcap_sendpacket(adhandle, packet, sizeof(packet));
-    exit(0);
+	/* EAPOL (4 Bytes) */
+	packet[14] = 0x01; // Version=1
+	packet[15] = 0x02; // Type=Logoff
+	packet[16] = packet[17] =0x00; // Length=0x0000
+
+	pcap_sendpacket(adhandle, packet, sizeof(packet));
+	printf("注销成功。\n");	
+	exit(0);
 }
 
-
-// 函数: XOR(data[], datalen, key[], keylen)
-//
-// 使用密钥key[]对数据data[]进行异或加密
-//（注：该函数也可反向用于解密）
-static
+/* 使用密钥key[]对数据data[]进行异或加密
+ *（注：该函数也可反向用于解密）
+ */
 void XOR(uint8_t data[], unsigned dlen, const char key[], unsigned klen)
 {
-	unsigned int	i,j;
-	// 先按正序处理一遍
+	unsigned int i,j;
+	/* 正序处理一遍 */
 	for (i=0; i<dlen; i++)
 		data[i] ^= key[i%klen];
-	// 再按倒序处理第二遍
-	for (i=dlen-1,j=0;  j<dlen;  i--,j++)
+	/* 倒序处理第二遍 */
+	for (i=dlen-1,j=0; j<dlen; i--,j++)
 		data[i] ^= key[j%klen];
 }
 
 void FillClientVersionArea(uint8_t area[20])
 {
-    uint32_t random;
-    char	 RandomKey[8+1];
+	uint32_t random;
+	char RandomKey[8+1];
 
-    random = (uint32_t) time(NULL);    // 注：可以选任意32位整数
-    sprintf(RandomKey, "%08x", random);// 生成RandomKey[]字符串
+	random = (uint32_t) time(NULL);    // 注：可以选任意32位整数
+	sprintf(RandomKey, "%08x", random);// 生成RandomKey[]字符串
 
-    // 第一轮异或运算，以RandomKey为密钥加密16字节
-    memcpy(area, H3C_VERSION, sizeof(H3C_VERSION));
-    XOR(area, 16, RandomKey, strlen(RandomKey));
+	/* 第一轮异或运算，以RandomKey为密钥加密16字节 */
+	memcpy(area, H3C_VERSION, sizeof(H3C_VERSION));
+	XOR(area, 16, RandomKey, strlen(RandomKey));
 
-    // 此16字节加上4字节的random，组成总计20字节
-    random = htonl(random); // （需调整为网络字节序）
-    memcpy(area+16, &random, 4);
+	/* 此16字节加上4字节的random，组成总计20字节 */
+	random = htonl(random);
+	memcpy(area+16, &random, 4);
 
-    // 第二轮异或运算，以H3C_KEY为密钥加密前面生成的20字节
-    XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
+	/* 第二轮异或运算，以H3C_KEY为密钥加密前面生成的20字节 */
+	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
 }
 
 void FillMD5Area(uint8_t* digest, uint8_t id, 
