@@ -595,14 +595,12 @@ void SendResponseNotification(pcap_t *handle, const uint8_t request[], const uin
 	pcap_sendpacket(handle, response, sizeof(response));
 }
 
-
-static
 void FillBase64Area(char area[])
 {
 	uint8_t version[20];
 	const char Tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-			   "abcdefghijklmnopqrstuvwxyz"
-			   "0123456789+/"; // 标准的Base64字符映射表
+						"abcdefghijklmnopqrstuvwxyz"
+						"0123456789+/"; // 标准的Base64字符映射表
 	uint8_t	c1,c2,c3;
 	int	i, j;
 

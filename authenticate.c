@@ -556,6 +556,7 @@ void GetIpFromDevice(uint8_t ip[4], const char* DeviceName)
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	assert(fd>0);
 
+
 	strncpy(ifr.ifr_name, DeviceName, IFNAMSIZ);
 	ifr.ifr_addr.sa_family = AF_INET;
 	if (ioctl(fd, SIOCGIFADDR, &ifr) == 0)
@@ -596,4 +597,38 @@ int GetNetState(char *devicename)
 		ret = -1;
 	return ret;
 }
+
+void FillBase64Area(char area[])
+{
+	uint8_t version[20];
+	const char Tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+						"abcdefghijklmnopqrstuvwxyz"
+						"0123456789+/"; // 标准的Base64字符映射表
+	uint8_t	c1,c2,c3;
+	int	i, j;
+
+	// 首先生成20字节加密过的H3C版本号信息
+	FillClientVersionArea(version);
+
+	// 然后按照Base64编码法将前面生成的20字节数据转换为28字节ASCII字符
+	i = 0;
+	j = 0;
+	while (j < 24)
+	{
+		c1 = version[i++];
+		c2 = version[i++];
+		c3 = version[i++];
+		area[j++] = Tbl[ (c1&0xfc)>>2                               ];
+		area[j++] = Tbl[((c1&0x03)<<4)|((c2&0xf0)>>4)               ];
+		area[j++] = Tbl[               ((c2&0x0f)<<2)|((c3&0xc0)>>6)];
+		area[j++] = Tbl[                                c3&0x3f     ];
+	}
+	c1 = version[i++];
+	c2 = version[i++];
+	area[24] = Tbl[ (c1&0xfc)>>2 ];
+	area[25] = Tbl[((c1&0x03)<<4)|((c2&0xf0)>>4)];
+	area[26] = Tbl[               ((c2&0x0f)<<2)];
+	area[27] = '=';
+}
+
 

@@ -60,6 +60,7 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 										const char* username);
 
 void FillClientVersionArea(uint8_t area[]);
+void FillBase64Area(char area[]);
 
 /* 获取设备的MAC地址 */
 void GetDeviceMac(uint8_t mac[6], const char *devicename);
