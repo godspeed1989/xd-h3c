@@ -121,23 +121,29 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 				/* 根据收到的Request，回复相应的Response包 */
 				if ((EAP_Code)captured[18] == REQUEST) /* 请求包 */
 				{
+					fprintf(stdout, "request: ");
 					switch ((EAP_Type)captured[22])
 					{
 						case IDENTITY:
+							fprintf(stdout, "identity: ");
 							GetIpFromDevice(ip, DeviceName);
 							ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
 							break;
 						case MD5:
+							fprintf(stdout, "MD5: ");
 							ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
 							break;
 						case NOTIFICATION:
+							fprintf(stdout, "notification: ");
 							ResponseNotification(adhandle, captured, ethhdr);
 							break;
 						case AVAILIABLE:
-							
+							fprintf(stdout, "availiable: ");
+							ResponseAvailiable(adhandle, captured, ethhdr, ip, UserName);
 							break;
 						default:
-							printf("[%d] Server: Request (type:%d)!\n", (EAP_ID)captured[19], (EAP_Type)captured[22]);
+							printf("[%d] Server: Request (type:%d)!\n", 
+									(EAP_ID)captured[19], (EAP_Type)captured[22]);
 							printf("Error! Unexpected request type\n");
 							exit(-1);
 							break;
@@ -383,48 +389,93 @@ void FillWindowsVersionArea(uint8_t area[20])
 	memcpy(area, WinVersion, 20);
 	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
 }
+
 void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
 {
+	int i;
 	uint8_t	response[67];
 
 	assert((EAP_Code)request[18] == REQUEST);
 	assert((EAP_Type)request[22] == NOTIFICATION);
 
-	// Fill Ethernet header
+	/* Fill Ethernet frame header */
 	memcpy(response, ethhdr, 14);
 
-	// 802,1X Authentication
-	// {
-		response[14] = 0x1;	// 802.1X Version 1
-		response[15] = 0x0;	// Type=0 (EAP Packet)
-		response[16] = 0x00;	// Length
-		response[17] = 0x31;	//
+	response[14] = 0x1;		// 802.1X Version 1
+	response[15] = 0x0;		// Type=0 (EAP Packet)
+	response[16] = 0x00;	// Length
+	response[17] = 0x31;	// Length
 
-		// Extensible Authentication Protocol
-		// {
-		response[18] = (EAP_Code) RESPONSE;	// Code
-		response[19] = (EAP_ID) request[19];	// ID
-		response[20] = response[16];		// Length
-		response[21] = response[17];		//
-		response[22] = (EAP_Type) NOTIFICATION;	// Type
+	response[18] = (EAP_Code) RESPONSE;		// Code
+	response[19] = (EAP_ID) request[19];	// ID
+	response[20] = response[16];			// Length
+	response[21] = response[17];			// Length
+	response[22] = (EAP_Type) NOTIFICATION;	// Type
 
-		int i=23;
-		/* Notification Data (44 Bytes) */
-		// 其中前2+20字节为客户端版本
-		response[i++] = 0x01; // type 0x01
-		response[i++] = 22;   // lenth
-		FillClientVersionArea(response+i);
-		i += 20;
+	i = 23;
+	/* Notification Data (44 Bytes) */
+	
+	/* 前2+20字节为客户端版本 */
+	response[i++] = 0x01; // type 0x01
+	response[i++] = 22;   // length
+	FillClientVersionArea(response+i);
+	i += 20;
 
-		// 最后2+20字节存储加密后的Windows操作系统版本号
-		response[i++] = 0x02; // type 0x02
-		response[i++] = 22;   // length
-		FillWindowsVersionArea(response+i);
-		i += 20;
-		// }
-	// }
-
+	/* 后2+20字节存储加密后的Windows操作系统版本号 */
+	response[i++] = 0x02; // type 0x02
+	response[i++] = 22;   // length
+	FillWindowsVersionArea(response+i);
+	i += 20;
+	/* 发送 */
 	pcap_sendpacket(handle, response, sizeof(response));
+}
+
+void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
+						const uint8_t* ethhdr, const uint8_t ip[4],
+						const char* username)
+{
+	int i, usernamelen;
+	uint16_t eaplen;
+	uint8_t response[128];
+	
+	assert((EAP_Code)request[18] == REQUEST);
+	assert((EAP_Code)request[22] == AVAILIABLE);
+	
+	/* Fill Ethernet frame header */
+	memcpy(response, ethhdr, 14);
+	
+	response[14] = 0x1;		// 802.1X Version 1
+	response[15] = 0x0;		// Type=0 (EAP Packet)
+	//response[16~17]留空	// Length
+	
+	response[18] = (EAP_Code) RESPONSE;	// Code
+	response[19] = request[19];			// ID
+	//response[20~21]留空				// Length
+	response[22] = (EAP_Type) AVAILIABLE;// Type
+	
+	i = 23;
+	response[i++] = 0x00;		// 上报是否使用代理
+	response[i++] = 0x15;		// 上传IP地址
+	response[i++] = 0x04;		//
+	memcpy(response+i, ip, 4);	//
+	i += 4;
+	response[i++] = 0x06;		// 携带版本号
+	response[i++] = 0x07;
+	FileBase64Area(response+i);//TODO:
+	i += 28;
+	response[i++] = ' ';		// 两个空格符
+	response[i++] = ' ';		// 
+	usernamelen = strlen(username);
+	memcpy(response+i, username, usernamelen);
+	i += usernamelen;
+	
+	/* 补填前面留空的两处Length */
+	eaplen = htons(i-18);
+	memcpy(response+16, &eaplen, sizeof(eaplen));
+	memcpy(response+20, &eaplen, sizeof(eaplen));
+
+	/* 发送 */
+	pcap_sendpacket(handle, response, i);
 }
 
 //注销

@@ -51,8 +51,13 @@ void ResponseMD5(pcap_t *adhandle, const uint8_t* request,
 void FillMD5Area(uint8_t* digest, uint8_t id,
 				 const char* passwd, const uint8_t* srcMD5);
 
-void ResponseNotification(pcap_t *handle, const uint8_t request[], 
-										  const uint8_t ethhdr[]);
+void ResponseNotification(pcap_t *handle, const uint8_t* request, 
+										  const uint8_t* ethhdr);
+
+void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
+										const uint8_t* ethhdr,
+										const uint8_t ip[4],
+										const char* username);
 
 void FillClientVersionArea(uint8_t area[]);
 
