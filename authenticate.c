@@ -179,26 +179,18 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 					uint8_t errtype = captured[22];
 					uint8_t msgsize = captured[23];
 					const char *msg = (const char*) &captured[24];
-					if(errtype == 0x08)
-						exit(-1);
-					else
+					printf("[%d] Server: 认证失败。\n", (EAP_ID)captured[19]);
+					if (msgsize > 0)
 					{
-						printf("[%d] Server: 认证失败。\n", (EAP_ID)captured[19]);
-						if (errtype == 0x09 && msgsize > 0)
-						{
-							fprintf(stderr, "%s\n", msg);
-							// E2531:用户名不存在		E2535:Service is paused
-							// E2542:该用户帐号已经在别处登录
-							// E2547:接入时段限制		E2553:密码错误
-							// E2602:认证会话不存在	E3137:客户端版本号无效
-							exit(-1);
-						}
-						else
-						{
-							printf("errtype = 0x%02x\n", errtype);
-							exit(-1);
-						}
+						fprintf(stdout, "%s\n", msg);
+						fprintf(stdout, "E2531:用户名不存在\tE2535:Service is paused");
+						fprintf(stdout, "E2542:该用户帐号已经在别处登录");
+						fprintf(stdout, "E2547:接入时段限制\tE2553:密码错误");
+						fprintf(stdout, "E2602:认证会话不存在\tE63100:无效认证客户端版本");
 					}
+					fprintf(stderr, "errtype = 0x%02x\n", errtype);
+					fprintf(stdout, "\n\n重新开始认证......\n");
+					goto START_AUTHENTICATION;
 				}
 				else if ((EAP_Code)captured[18] == SUCCESS) /* 认证成功包 */
 				{
@@ -213,19 +205,19 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 				else if((EAP_Code)captured[18] == H3CDATA) /* H3C数据包 */
 				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
-					printf("[%d] Server: (H3C data packet)\n", captured[19]);
+					fprintf(stderr, "[%d] Server: (H3C Data)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
 				}
 				else if((EAP_Code)captured[18] == RESPONSE)
 				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
-					printf("[%d] Server: (response packet)\n", captured[19]);
+					fprintf(stderr, "[%d] Server: (Response)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
 				}
 				else
 				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
-					printf("[%d] Server: (Unknown packet)\n", captured[19]);
+					fprintf(stderr, "[%d] Server: (Unknown)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
 				}
 			}// forever capture packet
