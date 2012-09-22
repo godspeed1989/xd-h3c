@@ -36,4 +36,5 @@ TODO
 	request: MD5: [responsed]    
 	[3] Server: 认证失败。   
 	E63100: 无效认证客户端版本   
+3.不返回SUCCESS时不启动DHCP服务。    
 
