@@ -186,12 +186,12 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 						fprintf(stdout, "已知错误类型:\n");
 						fprintf(stdout, "E2531->用户名不存在\nE2535->停止服务\n");
 						fprintf(stdout, "E2542->该用户帐号已经在别处登录\n");
-						fprintf(stdout, "E2547->接入时段限制\nE2553:密码错误\n");
+						fprintf(stdout, "E2547->接入时段限制\nE2553->密码错误\n");
 						fprintf(stdout, "E2602->认证会话不存在\n");
 						fprintf(stdout, "E63100->无效认证客户端版本\n");
 					}
 					fprintf(stderr, "ErrType = [0x%02x]\n", errtype);
-					fprintf(stdout, "\n.\n重新开始认证......\n");
+					fprintf(stdout, ".\n.\n重新开始认证......\n");
 					goto START_AUTHENTICATION;
 				}
 				else if ((EAP_Code)captured[18] == SUCCESS) /* 认证成功包 */
