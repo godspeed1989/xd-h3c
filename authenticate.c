@@ -153,7 +153,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 							fprintf(stdout, "\t\t[responsed]\n");
 							break;
 						case MD5:
-							fprintf(stdout, "MD5!");
+							fprintf(stdout, "MD5!\t");
 							ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
 							fprintf(stdout, "\t\t[responsed]\n");
 							break;
