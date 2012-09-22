@@ -21,7 +21,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 	}
 	/* 打开适配器(网卡) */
 	adhandle = pcap_open_live(DeviceName, 65536, 1, DefaultTimeout, errbuf);
-	if (adhandle==NULL) {
+	if (adhandle == NULL) {
 		fprintf(stderr, "%s\n", errbuf);
 		exit(-1);
 	}
@@ -44,9 +44,9 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		const uint8_t *captured;
 		uint8_t	ethhdr[14] = {0};	// ethernet frame header
 		uint8_t	ip[4] = {0};		// ip address
+		
 		/* 主动发起认证会话 */
 		SendStartPkt(adhandle, MAC);
-
 		/* 等待认证服务器的回应 */
 		cnt = 0;
 		while (1)
@@ -62,7 +62,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 					exit(-1);
 				}
 				fprintf(stderr, "%s\n", "等待服务器响应...");
-				sleep(1); 
+				sleep(1);
 				if(GetNetState(DeviceName) == -1)
 				{
 					fprintf(stderr, "网卡异常！请检查网卡名称是否正确，网线是否插好！\n");
@@ -81,7 +81,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		ethhdr[12] = 0x88;
 		ethhdr[13] = 0x8e;
 		
-		/* 收到的第一个包可能是Request Notification。取决于校方网络配置 */
+		/* 收到的第一个包‘很有‘可能是Notification。取决于校方网络配置 */
 		if((EAP_Type)captured[22] == NOTIFICATION)
 		{
 			printf("[%d]\tServer: Request Notification!\n", captured[19]);
@@ -94,7 +94,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 			assert((EAP_Code)captured[18] == REQUEST);
 		}
 		
-		/* 回应Identity类型的请求 */
+		/* 收到的第二个包‘很有‘可能是Identity。取决于校方网络配置 */
 		if((EAP_Type)captured[22] == IDENTITY)
 		{
 			printf("[%d]\tServer: Request Identity!\n", captured[19]);
@@ -106,10 +106,10 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		{	// !!!遇到AVAILABLE包时需要特殊处理
 			// !!!中南财经政法大学使用的格式：
 			// !!!第一个 Request Availiable 要回答 Response Identity
-			printf("[%d] Server: Request AVAILABLE!\n", captured[19]);
+			printf("[%d] Server: Request Availiable first time!\n", captured[19]);
 			GetIpFromDevice(ip, DeviceName);
 			ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
-			printf("[%d] Client: Response Identity.\n", (EAP_ID)captured[19]);
+			printf("[%d] Client: Response Identity instead.\n", (EAP_ID)captured[19]);
 		}
 
 		/* 重设过滤器，只捕获华为802.1X认证设备发来的包
@@ -134,7 +134,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 				while (pcap_next_ex(adhandle, &header, &captured) != 1)
 				{
 					sleep(1);
-					if(GetNetState(DeviceName)==-1)
+					if(GetNetState(DeviceName) == -1)
 					{
 						fprintf(stderr, "网卡异常！请检查网卡名称是否正确，网线是否插好！\n");
 						exit(-1);
@@ -143,34 +143,33 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 				/* 根据收到的Request，回复相应的Response包 */
 				if ((EAP_Code)captured[18] == REQUEST) /* 请求包 */
 				{
-					fprintf(stdout, "request: ");
+					fprintf(stdout, "Server: Request [%d]\t", captured[19]);
 					switch ((EAP_Type)captured[22])
 					{
 						case IDENTITY:
-							fprintf(stdout, "identity: ");
+							fprintf(stdout, "Identity!");
 							GetIpFromDevice(ip, DeviceName);
 							ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
-							fprintf(stdout, "[responsed] \n");
+							fprintf(stdout, "\t\t[responsed]\n");
 							break;
 						case MD5:
-							fprintf(stdout, "MD5: ");
+							fprintf(stdout, "MD5!");
 							ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
-							fprintf(stdout, "[responsed] \n");
+							fprintf(stdout, "\t\t[responsed]\n");
 							break;
 						case NOTIFICATION:
-							fprintf(stdout, "notification: ");
+							fprintf(stdout, "Notification!");
 							ResponseNotification(adhandle, captured, ethhdr);
-							fprintf(stdout, "[responsed] \n");
+							fprintf(stdout, "\t\t[responsed]\n");
 							break;
 						case AVAILIABLE:
-							fprintf(stdout, "availiable: ");
+							fprintf(stdout, "Availiable!");
 							ResponseAvailiable(adhandle, captured, ethhdr, ip, UserName);
-							fprintf(stdout, "[responsed] \n");
+							fprintf(stdout, "\t\t[responsed]\n");
 							break;
 						default:
-							printf("[%d] Server: Request (type:%d)!\n", 
-									(EAP_ID)captured[19], (EAP_Type)captured[22]);
-							printf("Error! Unexpected request type\n");
+							fprintf(stderr, "(type:%d)!\n", (EAP_Type)captured[22]);
+							fprintf(stderr, "Error! Unexpected request type\n");
 							exit(-1);
 							break;
 					}
@@ -180,27 +179,23 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 					uint8_t errtype = captured[22];
 					uint8_t msgsize = captured[23];
 					const char *msg = (const char*) &captured[24];
-					if(errtype==0x08)
+					if(errtype == 0x08)
 						exit(-1);
 					else
 					{
 						printf("[%d] Server: 认证失败。\n", (EAP_ID)captured[19]);
-						if (errtype==0x09 && msgsize>0)
+						if (errtype == 0x09 && msgsize > 0)
 						{
 							fprintf(stderr, "%s\n", msg);
-							// 已知的几种错误如下
-							// E2531:用户名不存在
-							// E2535:Service is paused
+							// E2531:用户名不存在		E2535:Service is paused
 							// E2542:该用户帐号已经在别处登录
-							// E2547:接入时段限制
-							// E2553:密码错误
-							// E2602:认证会话不存在
-							// E3137:客户端版本号无效
+							// E2547:接入时段限制		E2553:密码错误
+							// E2602:认证会话不存在	E3137:客户端版本号无效
 							exit(-1);
 						}
 						else
 						{
-							printf("errtype=0x%02x\n", errtype);
+							printf("errtype = 0x%02x\n", errtype);
 							exit(-1);
 						}
 					}
@@ -208,73 +203,35 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 				else if ((EAP_Code)captured[18] == SUCCESS) /* 认证成功包 */
 				{
 					char cmd[30];
+					fprintf(stdout, "\n-------认证成功，开始获取IP-------\n");
 					strcpy(cmd,"dhclient ");
 					strcat(cmd, DeviceName);
 					system(cmd);
-					printf("\n-------程序将转入后台运行-------\n");
-					/* 建立子进程，后台运行循环体 */
-					pid_t pid;
-					pid = fork();
-					if(pid < 0)
-						exit(-1); 
-					else if(pid==0)
-					{
-						goto LOOP;
-					}
-					else
-					{
-						printf("认证成功。\n");
-						exit(0);
-					}
+					fprintf(stdout, "\n-------响应心跳包以保持在线-------\n");
+					goto LOOP;
 				}
 				else if((EAP_Code)captured[18] == H3CDATA) /* H3C数据包 */
-				{
+				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
 					printf("[%d] Server: (H3C data packet)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
-					// TODO: 没有处理华为自定义数据包
 				}
 				else if((EAP_Code)captured[18] == RESPONSE)
-				{
+				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
 					printf("[%d] Server: (response packet)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
-					// TODO: 没有处理华为自定义数据包
 				}
 				else
-				{
+				{// TODO: 没有处理华为自定义数据包
 					const char *msg = (const char*) &captured[24];
 					printf("[%d] Server: (Unknown packet)\n", captured[19]);
 					fprintf(stderr, "%s\n", msg);
 				}
 			}// forever capture packet
 		}//LOOP label
-	}//START_AUTHENTICATION
+	}//START_AUTHENTICATION label
 	return 0;
-}
-
-/* 获取设备的MAC地址 */
-void GetDeviceMac(uint8_t mac[6], const char *devicename)
-{
-	int	sock;
-	struct ifreq ifreq;
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-	strcpy(ifreq.ifr_name, devicename);
-    if(ioctl(sock, SIOCGIFHWADDR, &ifreq)==0)
-	{
-		mac[0]=(uint8_t)ifreq.ifr_hwaddr.sa_data[0];
-		mac[1]=(uint8_t)ifreq.ifr_hwaddr.sa_data[1];
-		mac[2]=(uint8_t)ifreq.ifr_hwaddr.sa_data[2];
-		mac[3]=(uint8_t)ifreq.ifr_hwaddr.sa_data[3];
-		mac[4]=(uint8_t)ifreq.ifr_hwaddr.sa_data[4];
-		mac[5]=(uint8_t)ifreq.ifr_hwaddr.sa_data[5];
-	}
-	else
-	{
-		printf("获取MAC地址失败！\n");
-		exit(1);
-	}
-	close(sock);
 }
 
 /* 发送EAP-START开始认证包 */
@@ -282,14 +239,14 @@ void SendStartPkt(pcap_t *handle, const uint8_t* MAC)
 {
 	uint8_t packet[18];
 	
-	memcpy(packet+6, MAC, 6);
+	memcpy(packet+6, MAC, 6);	//sender's MAC
 	packet[12] = 0x88;
 	packet[13] = 0x8e;
 
 	/* EAPOL (4 Bytes) */
-	packet[14] = 0x01;	// 802.1X Version=1
-	packet[15] = 0x01;	// Type=1 Start
-	packet[16] = packet[17] =0x00; // Length=0x0000
+	packet[14] = 0x01;				// 802.1X Version=1
+	packet[15] = 0x01;				// Type=1 Start
+	packet[16] = packet[17] =0x00;	// Length=0x0000
 
 	/* 为了兼容不同院校的网络配置，这里发送两遍Start */
 	/* 1、广播发送Start包 */
@@ -300,7 +257,7 @@ void SendStartPkt(pcap_t *handle, const uint8_t* MAC)
 	pcap_sendpacket(handle, packet, sizeof(packet));	
 }
 
-/* 回应Identity类型的请求 */
+/* 回应Identity类型的请求，返回IP和用户名 */
 void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 										const uint8_t ethhdr[14],
 										const uint8_t ip[4],
@@ -317,14 +274,15 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	/* fill ethernet frame header */
 	memcpy(response, ethhdr, 14);
 	
-	response[14] = 0x1;	// 802.1X Version 1
-	response[15] = 0x0;	// Type=0 (EAP Packet)
-	//response[16~17]留空, Length， 最后填
+	response[14] = 0x1;		// 802.1X Version 1
+	response[15] = 0x0;		// Type=0 (EAP Packet)
+	//response[16~17]留空，Length，最后填
 	
 	/* Extensible Authentication Protocol */
 	response[18] = (EAP_Code) RESPONSE;	// Code
 	response[19] = request[19];			// ID
-	//response[20~21]留空, Length, 最后填
+	//response[20~21]留空，Length，最后填
+
 	response[22] = (EAP_Type) IDENTITY;	// Type
 	/* Type-Data */
 	i = 23;
@@ -352,7 +310,23 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	return;
 }
 
-/* 发送加密后的密码 */
+/* 生成16字节的MD5信息 */
+void FillMD5Area(uint8_t* digest, uint8_t id, 
+				 const char* passwd, const uint8_t* srcMD5)
+{
+	uint8_t	msgbuf[128]; //msgbuf = ‘id‘ + ‘passwd’ + ‘srcMD5’
+	size_t msglen;
+	size_t passlen;
+	passlen = strlen(passwd);
+	msglen = 1 + passlen + 16;
+	assert(sizeof(msgbuf) >= msglen);
+	msgbuf[0] = id;
+	memcpy(msgbuf+1, passwd, passlen);
+	memcpy(msgbuf+1+passlen, srcMD5, 16);
+	gcry_md_hash_buffer(GCRY_MD_MD5, digest, msgbuf, msglen);
+}
+
+/* 回应MD5类型的请求，返回加密后的密码，用户名 */
 void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 								 const char* username, const char* passwd)
 {
@@ -375,7 +349,7 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	/* EAPOL */
 	response[14] = 0x1; // 802.1X Version 1
 	response[15] = 0x0; // Type=0 (EAP Packet)
-	memcpy(response+16, &eaplen, sizeof(eaplen));	// Length
+	memcpy(response+16, &eaplen, sizeof(eaplen)); // Length
 
 	/* EAP Extensible Authentication Protocol */
 	response[18] = (EAP_Code) RESPONSE; // Code
@@ -386,10 +360,10 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	response[22] = (EAP_Type) MD5;		// Type
 	response[23] = 16;	// Value-Size: 16 Bytes MD5 data
 	FillMD5Area(response+24, request[19], passwd, request+24);
-	memcpy(response+40, username, usernamelen);
-		i=40+usernamelen;
+	memcpy(response+40, username, usernamelen); //末尾添加用户名
+	i = 40 + usernamelen;
 	assert(i <= sizeof(response));
-	while(i<sizeof(response)) {
+	while(i < sizeof(response)) {
 		response[i]=0x00;
 		i++;
 	}
@@ -397,6 +371,7 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
     pcap_sendpacket(handle, response, packetlen);
 }
 
+/* 保持在线，上传客户端版本号及本地IP地址 */
 void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 						const uint8_t* ethhdr, const uint8_t ip[4],
 						const char* username)
@@ -413,11 +388,11 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	
 	response[14] = 0x1;		// 802.1X Version 1
 	response[15] = 0x0;		// Type=0 (EAP Packet)
-	//response[16~17]留空	// Length
+	//response[16~17]留空，Length，最后填
 	
 	response[18] = (EAP_Code) RESPONSE;	// Code
 	response[19] = request[19];			// ID
-	//response[20~21]留空				// Length
+	//response[20~21]留空，Length，最后填
 	response[22] = (EAP_Type) AVAILIABLE;// Type
 	
 	i = 23;
@@ -440,7 +415,6 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	eaplen = htons(i-18);
 	memcpy(response+16, &eaplen, sizeof(eaplen));
 	memcpy(response+20, &eaplen, sizeof(eaplen));
-
 	/* 发送 */
 	pcap_sendpacket(handle, response, i);
 }
@@ -467,7 +441,7 @@ void FillWindowsVersionArea(uint8_t area[20])
 	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
 }
 
-/* Response client version and OS version */
+/* 回应Notitfication类型的请求，返回客户端版本和操作系统版本 */
 void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
 {
 	int i;
@@ -517,7 +491,7 @@ void SendLogoffPkt(char *DeviceName)
 	uint8_t MAC[6];
 	/* 打开适配器(网卡) */
 	adhandle = pcap_open_live(DeviceName,65536,1,DefaultTimeout,errbuf);
-	if (adhandle==NULL) {
+	if (adhandle == NULL) {
 		fprintf(stderr, "%s\n", errbuf);
 		exit(-1);
 	}
@@ -532,27 +506,12 @@ void SendLogoffPkt(char *DeviceName)
 	/* EAPOL (4 Bytes) */
 	packet[14] = 0x01;				// Version=1
 	packet[15] = 0x02;				// Type=Logoff
-	packet[16] = packet[17] =0x00;	// Length=0x0000
+	packet[16] = packet[17] = 0x00;	// Length=0x0000
 	
 	/* 发送 */
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
 	printf("注销成功。\n");
 	exit(0);
-}
-
-void FillMD5Area(uint8_t* digest, uint8_t id, 
-				 const char* passwd, const uint8_t* srcMD5)
-{
-	uint8_t	msgbuf[128]; //msgbuf = ‘id‘ + ‘passwd’ + ‘srcMD5’
-	size_t msglen;
-	size_t passlen;
-	passlen = strlen(passwd);
-	msglen = 1 + passlen + 16;
-	assert(sizeof(msgbuf) >= msglen);
-	msgbuf[0] = id;
-	memcpy(msgbuf+1, passwd, passlen);
-	memcpy(msgbuf+1+passlen, srcMD5, 16);
-	gcry_md_hash_buffer(GCRY_MD_MD5, digest, msgbuf, msglen);
 }
 
 /* 从MAC地址获取IP */
@@ -578,6 +537,30 @@ void GetIpFromDevice(uint8_t ip[4], const char* DeviceName)
 		memset(ip, 0x00, 4);
 	}
 	close(fd);
+}
+
+/* 获取设备的MAC地址 */
+void GetDeviceMac(uint8_t mac[6], const char *devicename)
+{
+	int	sock;
+	struct ifreq ifreq;
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+	strcpy(ifreq.ifr_name, devicename);
+    if(ioctl(sock, SIOCGIFHWADDR, &ifreq)==0)
+	{
+		mac[0]=(uint8_t)ifreq.ifr_hwaddr.sa_data[0];
+		mac[1]=(uint8_t)ifreq.ifr_hwaddr.sa_data[1];
+		mac[2]=(uint8_t)ifreq.ifr_hwaddr.sa_data[2];
+		mac[3]=(uint8_t)ifreq.ifr_hwaddr.sa_data[3];
+		mac[4]=(uint8_t)ifreq.ifr_hwaddr.sa_data[4];
+		mac[5]=(uint8_t)ifreq.ifr_hwaddr.sa_data[5];
+	}
+	else
+	{
+		printf("获取MAC地址失败！\n");
+		exit(-1);
+	}
+	close(sock);
 }
 
 /* 获取网络状态：网线是否插好 */

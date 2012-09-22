@@ -1,6 +1,6 @@
 CC=gcc
 BIN=xdh3c
-OBJS=h3c_ouc.o authenticate.o
+OBJS=xd_h3c.o authenticate.o
 CFLAGS=-lpcap -lgcrypt
 
 $(BIN): $(OBJS)
