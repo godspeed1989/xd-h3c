@@ -77,19 +77,41 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 		 * 默认以单播方式应答802.1X认证设备发来的Request */
 		memcpy(DstMAC+0, captured+6, 6);	//拷贝交换机MAC
 		memcpy(ethhdr+0, captured+6, 6);	//拷贝交换机MAC至发包前6位
-		memcpy(ethhdr+6, MAC, 6);		//接下来6位为本机MAC
+		memcpy(ethhdr+6, MAC, 6);			//接下来6位为本机MAC
 		ethhdr[12] = 0x88;
 		ethhdr[13] = 0x8e;
 		
-		/* 回应Identity类型的请求 */
-		if ((EAP_Type)captured[22] == IDENTITY)
+		/* 收到的第一个包可能是Request Notification。取决于校方网络配置 */
+		if((EAP_Type)captured[22] == NOTIFICATION)
 		{
-			ip[0]=0x00; ip[1]=0x00;
-			ip[2]=0x00; ip[3]=0x00;
-			ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
+			printf("[%d]\tServer: Request Notification!\n", captured[19]);
+			ResponseNotification(adhandle, captured, ethhdr);
+			printf("\tClient: Response Notification.\n");
+
+			/* 继续接收下一个Request包 */
+			ret = pcap_next_ex(adhandle, &header, &captured);
+			assert(ret==1);
+			assert((EAP_Code)captured[18] == REQUEST);
 		}
-		else
-			goto START_AUTHENTICATION;
+		
+		/* 回应Identity类型的请求 */
+		if((EAP_Type)captured[22] == IDENTITY)
+		{
+			printf("[%d]\tServer: Request Identity!\n", captured[19]);
+			GetIpFromDevice(ip, DeviceName);
+			ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
+			printf("\tClient: Response Identity.\n");
+		}
+		else if ((EAP_Type)captured[22] == AVAILIABLE)
+		{	// !!!遇到AVAILABLE包时需要特殊处理
+			// !!!中南财经政法大学使用的格式：
+			// !!!第一个 Request Availiable 要回答 Response Identity
+			printf("[%d] Server: Request AVAILABLE!\n", captured[19]);
+			GetIpFromDevice(ip, DeviceName);
+			ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
+			printf("[%d] Client: Response Identity.\n", (EAP_ID)captured[19]);
+		}
+
 		/* 重设过滤器，只捕获华为802.1X认证设备发来的包
 		 *（包括多播Request Identity / Request AVAILABLE
 		 */
@@ -128,18 +150,22 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 							fprintf(stdout, "identity: ");
 							GetIpFromDevice(ip, DeviceName);
 							ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
+							fprintf(stdout, "[responsed] \n");
 							break;
 						case MD5:
 							fprintf(stdout, "MD5: ");
 							ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
+							fprintf(stdout, "[responsed] \n");
 							break;
 						case NOTIFICATION:
 							fprintf(stdout, "notification: ");
 							ResponseNotification(adhandle, captured, ethhdr);
+							fprintf(stdout, "[responsed] \n");
 							break;
 						case AVAILIABLE:
 							fprintf(stdout, "availiable: ");
 							ResponseAvailiable(adhandle, captured, ethhdr, ip, UserName);
+							fprintf(stdout, "[responsed] \n");
 							break;
 						default:
 							printf("[%d] Server: Request (type:%d)!\n", 
@@ -185,6 +211,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 					strcpy(cmd,"dhclient ");
 					strcat(cmd, DeviceName);
 					system(cmd);
+					printf("\n-------程序将转入后台运行-------\n");
 					/* 建立子进程，后台运行循环体 */
 					pid_t pid;
 					pid = fork();
@@ -345,15 +372,17 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	/* Fill Ethernet frame header */
 	memcpy(response, ethhdr, 14);
 
+	/* EAPOL */
 	response[14] = 0x1; // 802.1X Version 1
 	response[15] = 0x0; // Type=0 (EAP Packet)
 	memcpy(response+16, &eaplen, sizeof(eaplen));	// Length
 
-	/* Extensible Authentication Protocol */
+	/* EAP Extensible Authentication Protocol */
 	response[18] = (EAP_Code) RESPONSE; // Code
 	response[19] = request[19];			// ID
 	response[20] = response[16];		// Length
 	response[21] = response[17];		// Length
+	
 	response[22] = (EAP_Type) MD5;		// Type
 	response[23] = 16;	// Value-Size: 16 Bytes MD5 data
 	FillMD5Area(response+24, request[19], passwd, request+24);
@@ -366,68 +395,6 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	}
 	/* 发送 */
     pcap_sendpacket(handle, response, packetlen);
-}
-
-/* 使用密钥key[]对数据data[]进行异或加密
- *（注：该函数也可反向用于解密）
- */
-void XOR(uint8_t data[], unsigned dlen, const char key[], unsigned klen)
-{
-	unsigned int i,j;
-	/* 正序处理一遍 */
-	for (i=0; i<dlen; i++)
-		data[i] ^= key[i%klen];
-	/* 倒序处理第二遍 */
-	for (i=dlen-1,j=0; j<dlen; i--,j++)
-		data[i] ^= key[j%klen];
-}
-
-void FillWindowsVersionArea(uint8_t area[20])
-{
-	const uint8_t WinVersion[20] = "r70393861";
-
-	memcpy(area, WinVersion, 20);
-	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
-}
-
-void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
-{
-	int i;
-	uint8_t	response[67];
-
-	assert((EAP_Code)request[18] == REQUEST);
-	assert((EAP_Type)request[22] == NOTIFICATION);
-
-	/* Fill Ethernet frame header */
-	memcpy(response, ethhdr, 14);
-
-	response[14] = 0x1;		// 802.1X Version 1
-	response[15] = 0x0;		// Type=0 (EAP Packet)
-	response[16] = 0x00;	// Length
-	response[17] = 0x31;	// Length
-
-	response[18] = (EAP_Code) RESPONSE;		// Code
-	response[19] = (EAP_ID) request[19];	// ID
-	response[20] = response[16];			// Length
-	response[21] = response[17];			// Length
-	response[22] = (EAP_Type) NOTIFICATION;	// Type
-
-	i = 23;
-	/* Notification Data (44 Bytes) */
-	
-	/* 前2+20字节为客户端版本 */
-	response[i++] = 0x01; // type 0x01
-	response[i++] = 22;   // length
-	FillClientVersionArea(response+i);
-	i += 20;
-
-	/* 后2+20字节存储加密后的Windows操作系统版本号 */
-	response[i++] = 0x02; // type 0x02
-	response[i++] = 22;   // length
-	FillWindowsVersionArea(response+i);
-	i += 20;
-	/* 发送 */
-	pcap_sendpacket(handle, response, sizeof(response));
 }
 
 void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
@@ -461,7 +428,7 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	i += 4;
 	response[i++] = 0x06;		// 携带版本号
 	response[i++] = 0x07;
-	FileBase64Area(response+i);//TODO:
+	FillBase64Area(response+i);
 	i += 28;
 	response[i++] = ' ';		// 两个空格符
 	response[i++] = ' ';		// 
@@ -478,12 +445,74 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	pcap_sendpacket(handle, response, i);
 }
 
-//注销
+/* 使用密钥key[]对数据data[]进行异或加密
+ *（注：该函数也可反向用于解密）*/
+void XOR(uint8_t data[], unsigned dlen, const char key[], unsigned klen)
+{
+	unsigned int i,j;
+	/* 正序处理一遍 */
+	for (i=0; i<dlen; i++)
+		data[i] ^= key[i%klen];
+	/* 倒序处理第二遍 */
+	for (i=dlen-1,j=0; j<dlen; i--,j++)
+		data[i] ^= key[j%klen];
+}
+
+/* 生成20字节加密过的Windows版本号信息 */
+void FillWindowsVersionArea(uint8_t area[20])
+{
+	const uint8_t WinVersion[20] = "r70393861";
+
+	memcpy(area, WinVersion, 20);
+	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
+}
+
+/* Response client version and OS version */
+void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
+{
+	int i;
+	uint8_t	response[67];
+
+	assert((EAP_Code)request[18] == REQUEST);
+	assert((EAP_Type)request[22] == NOTIFICATION);
+
+	/* Fill Ethernet frame header */
+	memcpy(response, ethhdr, 14);
+
+	response[14] = 0x1;		// 802.1X Version 1
+	response[15] = 0x0;		// Type=0 (EAP Packet)
+	response[16] = 0x00;	// Length
+	response[17] = 0x31;	// Length
+
+	response[18] = (EAP_Code) RESPONSE;		// Code
+	response[19] = (EAP_ID) request[19];	// ID
+	response[20] = response[16];			// Length
+	response[21] = response[17];			// Length
+	response[22] = (EAP_Type) NOTIFICATION;	// Type
+
+	i = 23;
+	/* Notification Data (44 Bytes) */
+	/* 前2+20字节为客户端版本 */
+	response[i++] = 0x01; // type 0x01
+	response[i++] = 22;   // length
+	FillClientVersionArea(response+i);
+	i += 20;
+
+	/* 后2+20字节存储加密后的Windows操作系统版本号 */
+	response[i++] = 0x02; // type 0x02
+	response[i++] = 22;   // length
+	FillWindowsVersionArea(response+i);
+	i += 20;
+	/* 发送 */
+	pcap_sendpacket(handle, response, sizeof(response));
+}
+
+/* 发送下线通知 */
 void SendLogoffPkt(char *DeviceName)
 {
 	uint8_t packet[18];
 	pcap_t *adhandle; // adapter handle
-	const int DefaultTimeout=60000;//设置接收超时参数，单位ms
+	const int DefaultTimeout = 60000;//设置接收超时参数，单位ms
 	char errbuf[PCAP_ERRBUF_SIZE];
 	uint8_t MAC[6];
 	/* 打开适配器(网卡) */
@@ -501,33 +530,14 @@ void SendLogoffPkt(char *DeviceName)
 	packet[13] = 0x8e;
 
 	/* EAPOL (4 Bytes) */
-	packet[14] = 0x01; // Version=1
-	packet[15] = 0x02; // Type=Logoff
-	packet[16] = packet[17] =0x00; // Length=0x0000
-
+	packet[14] = 0x01;				// Version=1
+	packet[15] = 0x02;				// Type=Logoff
+	packet[16] = packet[17] =0x00;	// Length=0x0000
+	
+	/* 发送 */
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
-	printf("注销成功。\n");	
+	printf("注销成功。\n");
 	exit(0);
-}
-
-void FillClientVersionArea(uint8_t area[20])
-{
-	uint32_t random;
-	char RandomKey[8+1];
-
-	random = (uint32_t) time(NULL);    // 注：可以选任意32位整数
-	sprintf(RandomKey, "%08x", random);// 生成RandomKey[]字符串
-
-	/* 第一轮异或运算，以RandomKey为密钥加密16字节 */
-	memcpy(area, H3C_VERSION, sizeof(H3C_VERSION));
-	XOR(area, 16, RandomKey, strlen(RandomKey));
-
-	/* 此16字节加上4字节的random，组成总计20字节 */
-	random = htonl(random);
-	memcpy(area+16, &random, 4);
-
-	/* 第二轮异或运算，以H3C_KEY为密钥加密前面生成的20字节 */
-	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
 }
 
 void FillMD5Area(uint8_t* digest, uint8_t id, 
@@ -555,7 +565,6 @@ void GetIpFromDevice(uint8_t ip[4], const char* DeviceName)
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	assert(fd>0);
-
 
 	strncpy(ifr.ifr_name, DeviceName, IFNAMSIZ);
 	ifr.ifr_addr.sa_family = AF_INET;
@@ -598,19 +607,41 @@ int GetNetState(char *devicename)
 	return ret;
 }
 
+/* 生成20字节加密过的H3C版本号信息 */
+void FillClientVersionArea(uint8_t area[20])
+{
+	uint32_t random;
+	char RandomKey[8+1];
+
+	random = (uint32_t) time(NULL);    // 注：可以选任意32位整数
+	sprintf(RandomKey, "%08x", random);// 生成RandomKey[]字符串
+
+	/* 第一轮异或运算，以RandomKey为密钥加密16字节 */
+	memcpy(area, H3C_VERSION, sizeof(H3C_VERSION));
+	XOR(area, 16, RandomKey, strlen(RandomKey));
+
+	/* 此16字节加上4字节的random，组成总计20字节 */
+	random = htonl(random);
+	memcpy(area+16, &random, 4);
+
+	/* 第二轮异或运算，以H3C_KEY为密钥加密前面生成的20字节 */
+	XOR(area, 20, H3C_KEY, strlen(H3C_KEY));
+}
+
+/* 按照Base64编码将20字节加密过的H3C版本号信息转换为28字节ASCII字符 */
 void FillBase64Area(char area[])
 {
+	int	i, j;
+	uint8_t	c1, c2, c3;
 	uint8_t version[20];
-	const char Tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const char* Tbl =	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 						"abcdefghijklmnopqrstuvwxyz"
 						"0123456789+/"; // 标准的Base64字符映射表
-	uint8_t	c1,c2,c3;
-	int	i, j;
 
-	// 首先生成20字节加密过的H3C版本号信息
+	/* 首先生成20字节加密过的H3C版本号信息 */
 	FillClientVersionArea(version);
 
-	// 然后按照Base64编码法将前面生成的20字节数据转换为28字节ASCII字符
+	/* 按照Base64编码法将前面生成的20字节数据转换为28字节ASCII字符 */
 	i = 0;
 	j = 0;
 	while (j < 24)
@@ -630,5 +661,4 @@ void FillBase64Area(char area[])
 	area[26] = Tbl[               ((c2&0x0f)<<2)];
 	area[27] = '=';
 }
-
 

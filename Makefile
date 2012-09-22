@@ -1,5 +1,5 @@
 CC=gcc
-BIN=h3c_ouc
+BIN=xdh3c
 OBJS=h3c_ouc.o authenticate.o
 CFLAGS=-lpcap -lgcrypt
 

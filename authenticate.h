@@ -50,7 +50,7 @@ void ResponseMD5(pcap_t *adhandle, const uint8_t* request,
 								   const char* passwd);
 void FillMD5Area(uint8_t* digest, uint8_t id,
 				 const char* passwd, const uint8_t* srcMD5);
-
+/* Response client version and OS version */
 void ResponseNotification(pcap_t *handle, const uint8_t* request, 
 										  const uint8_t* ethhdr);
 
@@ -58,9 +58,15 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 										const uint8_t* ethhdr,
 										const uint8_t ip[4],
 										const char* username);
+/* 生成20字节加密过的H3C版本号信息 */
+void FillClientVersionArea(uint8_t area[20]);
+/* 按照Base64编码将20字节加密过的H3C版本号信息转换为28字节ASCII字符 */
+void FillBase64Area(char area[28]);
+/* 生成20字节加密过的Windows版本号信息 */
+void FillWindowsVersionArea(uint8_t area[20]);
 
-void FillClientVersionArea(uint8_t area[]);
-void FillBase64Area(char area[]);
+/* 发送下线通知 */
+void SendLogoffPkt(char *DeviceName);
 
 /* 获取设备的MAC地址 */
 void GetDeviceMac(uint8_t mac[6], const char *devicename);
