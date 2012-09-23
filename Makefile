@@ -4,9 +4,9 @@ OBJS=xd_h3c.o authenticate.o
 CFLAGS=-lpcap -lgcrypt
 
 $(BIN): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o  $@
+	$(CC) $(CFLAGS) $(OBJS) -o $@
 
-%.o: %.c
+%.o: %.c %.h
 	$(CC) $(CFLAGS) -c $<
 
 .PHONY: clean install uninstall
@@ -19,5 +19,5 @@ uninstall:
 	$(RM) /usr/local/bin/$(BIN)
 
 clean:
-	$(RM) $(OBJS) $(BIN)
+	@$(RM) $(OBJS) $(BIN)
 

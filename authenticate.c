@@ -1,5 +1,13 @@
 ﻿#include "authenticate.h"
 
+const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
+const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
+
+const char H3C_VERSION[16]	=	"EN V3.60-6303";	// 华为客户端版本号
+const char H3C_KEY[]		=	"HuaWei3COM1X";		// H3C的固定密钥
+static uint8_t DstMAC[6];	//服务端MAC地址
+
+static int logoff = 0;
 /**
  * 使用以太网进行802.1X认证(802.1X Authentication)
  * 该函数将不断循环，应答802.1X认证会话，直到遇到错误后才退出
@@ -7,9 +15,10 @@
 int Authentication(char *UserName, char *Password, char *DeviceName)
 {
 	char	errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t	*adhandle; // adapter handle
+	pcap_t	*adhandle;			// net adapter handler
 	uint8_t	MAC[6];
 	char	FilterStr[100];
+	char	cmd[30];
 	struct bpf_program fcode;
 	int DefaultTimeout = 1000;	//设置接收超时参数，单位ms
 
@@ -44,12 +53,13 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		const uint8_t *captured;
 		uint8_t	ethhdr[14] = {0};	// ethernet frame header
 		uint8_t	ip[4] = {0};		// ip address
+		int pass_identify = 0;
 		
 		/* 主动发起认证会话 */
 		SendStartPkt(adhandle, MAC);
 		/* 等待认证服务器的回应 */
 		cnt = 0;
-		while (1)
+		while (!logoff)
 		{
 			ret = pcap_next_ex(adhandle, &header, &captured);
 			if (ret==1 && (EAP_Code)captured[18]==REQUEST)
@@ -72,7 +82,8 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 				cnt++;
 			}
 		}
-
+		if(logoff)
+			return -1;
 		/* 填写应答以太帧的报头(以后无须再修改)
 		 * 默认以单播方式应答802.1X认证设备发来的Request */
 		memcpy(DstMAC+0, captured+6, 6);	//拷贝交换机MAC
@@ -87,7 +98,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			printf("[%d]\tServer: Request Notification!\n", captured[19]);
 			ResponseNotification(adhandle, captured, ethhdr);
 			printf("\tClient: Response Notification.\n");
-
+			
 			/* 继续接收下一个Request包 */
 			ret = pcap_next_ex(adhandle, &header, &captured);
 			assert(ret==1);
@@ -103,8 +114,8 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			printf("\tClient: Response Identity.\n");
 		}
 		else if ((EAP_Type)captured[22] == AVAILIABLE)
-		{	// !!!遇到AVAILABLE包时需要特殊处理
-			// !!!中南财经政法大学使用的格式：
+		{	// !!!中南财经政法大学使用的格式：
+			// !!!遇到AVAILABLE包时需要特殊处理
 			// !!!第一个 Request Availiable 要回答 Response Identity
 			printf("[%d] Server: Request Availiable first time!\n", captured[19]);
 			GetIpFromDevice(ip, DeviceName);
@@ -128,7 +139,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 				fprintf(stderr, "网卡异常！请检查网卡名称是否正确，网线是否插好！\n");
 				exit(-1);
 			}
-			for (;;)
+			while(!logoff)
 			{
 				/* 捕获数据包，直到成功捕获到一个数据包后再跳出*/
 				while (pcap_next_ex(adhandle, &header, &captured) != 1)
@@ -143,6 +154,13 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 				/* 根据收到的Request，回复相应的Response包 */
 				if ((EAP_Code)captured[18] == REQUEST) /* 请求包 */
 				{
+					if(!pass_identify)
+					{// 上一次认证成功后程序异常退出，没有注销。下次有可能跳过认证阶段
+						strcpy(cmd,"dhclient ");
+						strcat(cmd, DeviceName);
+						system(cmd);
+						pass_identify = 1;
+					}
 					fprintf(stdout, "Server: Request [%d]\t", captured[19]);
 					switch ((EAP_Type)captured[22])
 					{
@@ -174,6 +192,16 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 							break;
 					}
 				}
+				else if ((EAP_Code)captured[18] == SUCCESS) /* 认证成功包 */
+				{
+					pass_identify = 1;
+					fprintf(stdout, "\n-------认证成功，开始获取IP-------\n");
+					strcpy(cmd,"dhclient ");
+					strcat(cmd, DeviceName);
+					system(cmd);
+					fprintf(stdout, "\n-------响应心跳包以保持在线-------\n");
+					goto LOOP;
+				}
 				else if ((EAP_Code)captured[18] == FAILURE) /* 失败包 */
 				{
 					uint8_t errtype = captured[22];
@@ -193,16 +221,6 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 					fprintf(stderr, "ErrType = [0x%02x]\n", errtype);
 					fprintf(stdout, ".\n.\n重新开始认证......\n");
 					goto START_AUTHENTICATION;
-				}
-				else if ((EAP_Code)captured[18] == SUCCESS) /* 认证成功包 */
-				{
-					char cmd[30];
-					fprintf(stdout, "\n-------认证成功，开始获取IP-------\n");
-					strcpy(cmd,"dhclient ");
-					strcat(cmd, DeviceName);
-					system(cmd);
-					fprintf(stdout, "\n-------响应心跳包以保持在线-------\n");
-					goto LOOP;
 				}
 				else if((EAP_Code)captured[18] == H3CDATA) /* H3C数据包 */
 				{// TODO: 没有处理华为自定义数据包
@@ -483,6 +501,8 @@ void SendLogoffPkt(char *DeviceName)
 	const int DefaultTimeout = 60000;//设置接收超时参数，单位ms
 	char errbuf[PCAP_ERRBUF_SIZE];
 	uint8_t MAC[6];
+	printf("\n开始注销。\n");
+	logoff = 1;
 	/* 打开适配器(网卡) */
 	adhandle = pcap_open_live(DeviceName,65536,1,DefaultTimeout,errbuf);
 	if (adhandle == NULL) {
@@ -504,7 +524,7 @@ void SendLogoffPkt(char *DeviceName)
 	
 	/* 发送 */
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
-	printf("注销成功。\n");
+	printf("\n注销成功。\n");
 	exit(0);
 }
 

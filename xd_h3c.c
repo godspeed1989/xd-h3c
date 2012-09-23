@@ -5,7 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <signal.h>
 #include <errno.h>
+#include "authenticate.h"
+
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
 
 	const char DefaultDevName[] = "eth0";
@@ -21,12 +24,30 @@ void print_help();
 void getUserName();
 void getPassword();
 void getDevice();
+
+void exit_handler(int signo, siginfo_t * info, void * p)
+{
+	if(signo == SIGKILL)
+	{
+		printf("接收到退出信号，准备退出。\n");
+		if(devicename != NULL)
+			SendLogoffPkt(devicename);
+		printf("bye bye!\n");
+		exit(0);
+	}
+}
+
 //主函数
 int main(int argc,char *argv[])
 {
 	int c = 0, i, j;
 	int opt;
 	opterr = 0;
+	struct sigaction act = {0};
+	//注册退出事件函数d
+	sigemptyset(&act.sa_mask);
+	act.sa_sigaction = exit_handler;
+	act.sa_flags = SA_SIGINFO;
 	//开始解析命令行
 	for(i=0;i<argc;i++)
 	{
@@ -166,7 +187,7 @@ int main(int argc,char *argv[])
 				exit(1);
 				break;
 		}//switch
-	}
+	}//while
        
 	if((strlen(username)!=0)&&(strlen(password)!=0)&&(strlen(devicename)!=0))
 	{
@@ -278,20 +299,18 @@ int checkprocess()
 		{
 			fseek(read_fp, sizeof(char), 1);
 			ch = fgetc(read_fp);
-            if(ch=='\n')
-              count++;
-           }
-        if(count>1)
-           return -1;
-        else
-           return 1;
-        pclose(read_fp);
-    }
-    else
-    {
-        printf("Shell command error!\n");
-        exit(1);
-    }
+			if(ch=='\n')
+				count++;
+		}
+		if(count>1)
+			return -1;
+		else
+			return 1;
+		pclose(read_fp);
+	}
+	else
+	{
+		printf("Shell command error!\n");
+		exit(1);
+	}
 }
-
-            

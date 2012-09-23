@@ -18,14 +18,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
-const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
-
-const char H3C_VERSION[16]	=	"EN V3.60-6303";	// 华为客户端版本号
-const char H3C_KEY[]		=	"HuaWei3COM1X";		// H3C的固定密钥
-
-static uint8_t DstMAC[6];	//服务端MAC地址
-
 /* 802.1X报文结构 */
 typedef enum {REQUEST=1, RESPONSE=2, SUCCESS=3, FAILURE=4, H3CDATA=10} EAP_Code;
 typedef enum {IDENTITY=1, NOTIFICATION=2, MD5=4, AVAILIABLE=20} EAP_Type;
@@ -69,7 +61,7 @@ void FillMD5Area(uint8_t* digest, uint8_t id,
 void SendLogoffPkt(char *DeviceName);
 
 /* 获取设备的MAC地址 */
-void GetDeviceMac(uint8_t mac[6], const char *devicename);
+void GetDeviceMac(uint8_t mac[6], const char *DeviceName);
 /* 从MAC地址获取IP */
 void GetIpFromDevice(uint8_t ip[4], const char* DeviceName);
 /* 获取网络状态：网线是否插好 */
