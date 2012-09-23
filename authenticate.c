@@ -4,7 +4,7 @@
  * 使用以太网进行802.1X认证(802.1X Authentication)
  * 该函数将不断循环，应答802.1X认证会话，直到遇到错误后才退出
  */
-int Authentication(char *UserName,char *Password,char *DeviceName)
+int Authentication(char *UserName, char *Password, char *DeviceName)
 {
 	char	errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t	*adhandle; // adapter handle
@@ -112,7 +112,7 @@ int Authentication(char *UserName,char *Password,char *DeviceName)
 			printf("[%d] Client: Response Identity instead.\n", (EAP_ID)captured[19]);
 		}
 
-		/* 重设过滤器，只捕获华为802.1X认证设备发来的包
+		/* 重设过滤器，'只捕获'华为802.1X认证设备发来的包
 		 *（包括多播Request Identity / Request AVAILABLE
 		 */
 		sprintf(FilterStr, "(ether proto 0x888e) and (ether src host %02x:%02x:%02x:%02x:%02x:%02x)",
