@@ -48,8 +48,10 @@ int main(int argc,char *argv[])
 	sigemptyset(&act.sa_mask);
 	act.sa_sigaction = exit_handler;
 	act.sa_flags = SA_SIGINFO;
+	if(sigaction(SIGINT, &exit_handler, NULL)==-1)
+		perror("sigaction");
 	//开始解析命令行
-	for(i=0;i<argc;i++)
+	for(i=0; i<argc; i++)
 	{
 		for(j=0;j<strlen(argv[i]);j++)
 		if(argv[i][j]=='-' && strlen(argv[i])!=1)
