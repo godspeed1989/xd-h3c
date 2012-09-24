@@ -2,6 +2,8 @@ CC=gcc
 BIN=xdh3c
 OBJS=xd_h3c.o authenticate.o
 CFLAGS=-lpcap -lgcrypt
+INSTALL=install
+RM=rm
 
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
