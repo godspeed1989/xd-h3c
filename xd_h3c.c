@@ -43,13 +43,15 @@ int main(int argc,char *argv[])
 	int c = 0, i, j;
 	int opt;
 	opterr = 0;
-	struct sigaction act = {0};
+	static struct sigaction act = {0};
 	//注册退出事件函数d
 	sigemptyset(&act.sa_mask);
 	act.sa_sigaction = exit_handler;
 	act.sa_flags = SA_SIGINFO;
-	if(sigaction(SIGINT, &exit_handler, NULL)==-1)
+	if(sigaction(SIGINT, &act, NULL)==-1) {
 		perror("sigaction");
+		return -1;
+	}
 	//开始解析命令行
 	for(i=0; i<argc; i++)
 	{
