@@ -72,7 +72,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 					exit(-1);
 				}
 				fprintf(stderr, "%s\n", "等待服务器响应...");
-				sleep(1);
+				usleep(500);
 				if(GetNetState(DeviceName) == -1)
 				{
 					fprintf(stderr, "网卡异常！请检查网卡名称是否正确，网线是否插好！\n");
@@ -494,6 +494,7 @@ void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t
 }
 
 /* 发送下线通知 */
+
 void SendLogoffPkt(char *DeviceName)
 {
 	uint8_t packet[18];
@@ -525,7 +526,6 @@ void SendLogoffPkt(char *DeviceName)
 	/* 发送 */
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
 	printf("\n注销成功。\n");
-	exit(0);
 }
 
 /* 从MAC地址获取IP */
