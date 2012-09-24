@@ -27,7 +27,7 @@ void getDevice();
 
 void exit_handler(int signo, siginfo_t * info, void * p)
 {
-	if(signo == SIGKILL)
+	if(signo == SIGINT)
 	{
 		printf("接收到退出信号，准备退出。\n");
 		if(devicename != NULL)
