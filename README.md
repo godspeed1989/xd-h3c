@@ -31,8 +31,7 @@ http://tools.ietf.org/html/rfc3748
 
 ISSUES
 ======
-1. 下线处理。   
-2. 认证成功后，再次请求MD5，会有E63001错误。   
-	request: MD5: [responsed]    
-	[3] Server: 认证失败。   
-	E63100: 无效认证客户端版本  
+认证成功后，再次请求MD5，会有E63001错误。   
+***request: MD5: [responsed]    
+***[3] Server: 认证失败。   
+***E63100: 无效认证客户端版本  

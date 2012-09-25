@@ -216,7 +216,8 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 						fprintf(stdout, "E2542->该用户帐号已经在别处登录\n");
 						fprintf(stdout, "E2547->接入时段限制\nE2553->密码错误\n");
 						fprintf(stdout, "E2602->认证会话不存在\n");
-						fprintf(stdout, "E63100->无效认证客户端版本\n");
+						fprintf(stdout, "E63001->无效认证客户端版本\n");
+						fprintf(stdout, "E63018->用户不存在或者没有申请该服务\n");
 					}
 					fprintf(stderr, "ErrType = [0x%02x]\n", errtype);
 					fprintf(stdout, ".\n.\n重新开始认证......\n");
