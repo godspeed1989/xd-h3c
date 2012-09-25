@@ -5,21 +5,22 @@ CFLAGS=-lpcap -lgcrypt
 INSTALL=install
 RM=rm
 
-$(BIN): $(OBJS)
+$(BIN): xd_h3c.o authenticate.o
 	$(CC) $(CFLAGS) $(OBJS) -o $@
 
-%.o: %.c %.h
+xd_h3c.o: xd_h3c.c
 	$(CC) $(CFLAGS) -c $<
 
-.PHONY: clean install uninstall
+authenticate.o: authenticate.c authenticate.h
+	$(CC) $(CFLAGS) -c $<
 
 install:
 	$(INSTALL) -d /usr/local/bin
 	$(INSTALL) -p -D -m 0755 $(BIN) /usr/local/bin
 
 uninstall:
-	$(RM) /usr/local/bin/$(BIN)
+	$(RM) -rf /usr/local/bin/$(BIN)
 
 clean:
-	@$(RM) $(OBJS) $(BIN)
+	@$(RM) -rf $(OBJS) $(BIN)
 
