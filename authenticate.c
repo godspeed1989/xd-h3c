@@ -16,7 +16,7 @@ void RunDHCP(const char *DeviceName)
 	fprintf(stdout, "------开始运行DHCP服务获取IP------\n");
 	strcpy(cmd, "sudo dhclient ");
 	strcat(cmd, DeviceName);
-	//system(cmd);
+	system(cmd);
 	fprintf(stdout, "----------------------------------\n");
 }
 
