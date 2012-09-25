@@ -214,8 +214,10 @@ void print_help()
 	printf("\t-l\t--logoff\t\t注销\n");
 	printf("举例:\n");
 	printf("\txdh3c -u abc -p 1234 -n eth0\n");
-	printf("\t也可以直接使用 xdh3c -u 按照提示输入。\n");
+	printf("\t也可直接使用 xdh3c -u 按照提示输入。\n");
+	printf("\t使用 Ctrl^C 注销登录并退出程序。\n");
 }
+
 //用户未输入用户名的处理
 void getUserName()
 {

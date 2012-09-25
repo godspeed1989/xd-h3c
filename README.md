@@ -18,6 +18,7 @@ COMMAND
 	sudo ./xdh3c -u [用户名] -p [密码] -d [网卡名称]    
 使用 ./xdh3c -u 按照提示输入。   
 使用 ./xdh3c -l [网卡名称] 注销登录。   
+使用 Ctrl^C 注销登录并退出程序。
 使用  --help 来查看详细帮助。    
 
 REFERENCE
