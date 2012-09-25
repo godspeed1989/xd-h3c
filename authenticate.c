@@ -14,6 +14,7 @@ void RunDHCP(const char *DeviceName)
 {
 	char cmd[32];
 	fprintf(stdout, "------开始运行DHCP服务获取IP------\n");
+	//TODO: detect the exist dhclient and exit them
 	strcpy(cmd, "sudo dhclient ");
 	strcat(cmd, DeviceName);
 	system(cmd);
