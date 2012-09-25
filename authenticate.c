@@ -160,8 +160,9 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			/* 捕获数据包，直到成功捕获到一个数据包后再跳出*/
 			while (pcap_next_ex(adhandle, &header, &captured) != 1)
 			{
-				printf("...\n");
+				printf(".");
 			}
+			printf("\n");
 			/* 根据收到的Request，回复相应的Response包 */
 			switch( (EAP_Code)captured[18] ) 
 			{
