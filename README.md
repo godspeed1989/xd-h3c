@@ -32,9 +32,6 @@ http://tools.ietf.org/html/rfc3748
 
 ISSUES
 ======
-主楼使用没问题，宿舍楼出现问题E63001错误。   
-无法认证。   
-    
 认证成功后，再次请求MD5，会有E63001错误。   
 ***request: MD5: [responsed]    
 ***[3] Server: 认证失败。   

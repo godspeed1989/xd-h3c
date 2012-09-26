@@ -17,6 +17,7 @@ void RunDHCP(const char *DeviceName)
 	//TODO: detect the exist dhclient and exit them
 	strcpy(cmd, "sudo dhclient ");
 	strcat(cmd, DeviceName);
+	strcat(cmd, " &");
 	system(cmd);
 	fprintf(stdout, "----------------------------------\n");
 }
@@ -102,9 +103,9 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		struct pcap_pkthdr *header;
 		const uint8_t *captured;
 		uint8_t	ethhdr[14] = {0};	// ethernet frame header
-		
+
 		int pass_identify = 0;
-		
+
 		/* 主动发起认证会话 */
 		SendStartPkt(adhandle, MAC);
 		/* 等待认证服务器的回应 */
@@ -161,7 +162,8 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			/* 捕获数据包，直到成功捕获到一个数据包后再跳出*/
 			while (pcap_next_ex(adhandle, &header, &captured) != 1)
 			{
-				printf(".");
+				fprintf(stdout, ".");
+				fflush(stdout);
 			}
 			printf("\n");
 			/* 根据收到的Request，回复相应的Response包 */
@@ -220,7 +222,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 void SendStartPkt(pcap_t *handle, const uint8_t* MAC)
 {
 	uint8_t packet[18];
-	
+
 	memcpy(packet+6, MAC, 6);	//sender's MAC
 	packet[12] = 0x88;
 	packet[13] = 0x8e;
@@ -267,7 +269,7 @@ void SendLogoffPkt(char *DeviceName)
 	packet[14] = 0x01;				// Version=1
 	packet[15] = 0x02;				// Type=Logoff
 	packet[16] = packet[17] = 0x00;	// Length=0x0000
-	
+
 	/* 发送 */
 	pcap_sendpacket(adhandle, packet, sizeof(packet));
 	printf("\n注销成功。\n");
@@ -283,13 +285,13 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	uint8_t	response[128];
 	uint16_t eaplen;
 	int usernamelen;
-	
+
 	assert((EAP_Code)request[18] == REQUEST);
 	assert((EAP_Type)request[22] == IDENTITY);
-	
+
 	/* fill ethernet frame header */
 	memcpy(response, ethhdr, 14);
-	
+
 	response[14] = 0x1;		// 802.1X Version 1
 	response[15] = 0x0;		// Type=0 (EAP Packet)
 	//response[16~17]留空，Length，最后填
@@ -365,11 +367,11 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	response[19] = request[19];			// ID
 	response[20] = response[16];		// Length
 	response[21] = response[17];		// Length
-	
+
 	response[22] = (EAP_Type) MD5;		// Type
 	response[23] = 16;	// 16 Bytes MD5 data
 	FillMD5Area(response+24, request[19], passwd, request+24);
-	
+
 	memcpy(response+40, username, usernamelen); //末尾添加用户名
 	assert(40 + usernamelen <= sizeof(response));
 
@@ -385,22 +387,22 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	int i, usernamelen;
 	uint16_t eaplen;
 	uint8_t response[128];
-	
+
 	assert((EAP_Code)request[18] == REQUEST);
 	assert((EAP_Code)request[22] == AVAILIABLE);
-	
+
 	/* Fill Ethernet frame header */
 	memcpy(response, ethhdr, 14);
-	
+
 	response[14] = 0x1;		// 802.1X Version 1
 	response[15] = 0x0;		// Type=0 (EAP Packet)
 	//response[16~17]留空，Length，最后填
-	
+
 	response[18] = (EAP_Code) RESPONSE;	// Code
 	response[19] = request[19];			// ID
 	//response[20~21]留空，Length，最后填
 	response[22] = (EAP_Type) AVAILIABLE;// Type
-	
+
 	i = 23;
 	response[i++] = 0x00;		// 上报是否使用代理
 	response[i++] = 0x15;		// 上传IP地址
