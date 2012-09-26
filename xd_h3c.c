@@ -308,11 +308,11 @@ int checkprocess()
 			if(ch=='\n')
 				count++;
 		}
+		pclose(read_fp);
 		if(count>1)
 			return -1;
 		else
 			return 1;
-		pclose(read_fp);
 	}
 	else
 	{
