@@ -36,14 +36,13 @@ void exit_handler(int signo, siginfo_t * info, void * p)
 		exit(0);
 	}
 }
-
+struct sigaction act;
 //主函数
 int main(int argc,char *argv[])
 {
 	int c = 0, i, j;
 	int opt;
 	opterr = 0;
-	static struct sigaction act = {0};
 	//注册退出事件函数d
 	sigemptyset(&act.sa_mask);
 	act.sa_sigaction = exit_handler;
@@ -227,7 +226,7 @@ GetUserName:
 	printf("请输入用户名：");
 	setbuf(stdin,NULL);	//清除缓冲区(Linux),Windows下可以使用fflush或者rewind。 
 	fgets(temp,sizeof(char)*100,stdin);
-	if(strlen(temp)==0||strlen(temp)==1&&temp[0]=='\n')
+	if(strlen(temp)==0||(strlen(temp)==1&&temp[0]=='\n'))
 	{
 		printf("用户名不能为空！\n");
 		goto GetUserName;
@@ -238,7 +237,7 @@ GetUserName:
 //用户未输入密码的处理
 void getPassword()
 {
-	char c, temp[100];
+	char temp[100];
 	password = (char *)malloc(100);
 	printf("请输入密码：");
 	setbuf(stdin,NULL);//清除缓冲区(Linux),Windows下可以使用fflush或者rewind。
@@ -247,7 +246,7 @@ void getPassword()
 GetPassword:
 	fgets(temp,sizeof(char)*100,stdin);
 	printf("\n");
-	if(strlen(temp)==0 || strlen(temp)==1 && temp[0]=='\n')
+	if(strlen(temp)==0 || (strlen(temp)==1&&temp[0]=='\n'))
 	{
 		printf("密码不能为空！\n");
 		goto GetPassword;
@@ -265,7 +264,7 @@ void getDevice()
 	printf("请输入网卡名称（默认为eth0）：");
 	setbuf(stdin, NULL); //清除缓冲区(Linux),Windows下可以使用fflush或者rewind。
 	fgets(temp,sizeof(char)*100,stdin);
-	if(strlen(temp)==0||strlen(temp)==1&&temp[0]=='\n')
+	if(strlen(temp)==0|| (strlen(temp)==1&&temp[0]=='\n') )
 		strcpy(devicename,DefaultDevName);
 	else
 		memcpy(devicename,temp,strlen(temp)-1);
@@ -295,7 +294,6 @@ int checkprocess()
 {
 	FILE *read_fp;
 	char command[]="ps -e | grep -w xdh3c";
-	int process_read;
 	int count=0;
 	char ch;
 	read_fp = popen(command, "r");

@@ -1,12 +1,13 @@
 CC=gcc
 BIN=xdh3c
 OBJS=xd_h3c.o authenticate.o
-CFLAGS=-lpcap -lgcrypt
+LIBS= -lgcrypt -lpcap
+CFLAGS=-Wall
 INSTALL=install
 RM=rm
 
 $(BIN): xd_h3c.o authenticate.o
-	$(CC) $(CFLAGS) $(OBJS) -o $@
+	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 xd_h3c.o: xd_h3c.c
 	$(CC) $(CFLAGS) -c $<

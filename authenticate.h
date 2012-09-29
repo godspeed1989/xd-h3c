@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <time.h>
 #include <gcrypt.h>
-#include <pcap.h>
+#include <pcap/pcap.h>
 
 #include <unistd.h>
 #include <sys/wait.h>
