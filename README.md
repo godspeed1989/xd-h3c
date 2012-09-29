@@ -1,6 +1,8 @@
 xd-h3c
 ======
-xd-h3c是适用于西电北校区的 h3c UNIX/Linux 下上网客户端，主要依赖 libpcap 和 libgcrypt 库。
+xd-h3c是适用于西电北校区的 h3c UNIX/Linux 下上网客户端。    
+当然，iNode也可以用，但是，难道不起动X就不可以上网吗？    
+I use it every day now, need your test!!!    
 
 CONTACT
 =======
@@ -30,9 +32,3 @@ http://en.wikipedia.org/wiki/IEEE_802.1X
 RFC 3748   
 http://tools.ietf.org/html/rfc3748   
 
-ISSUES
-======
-认证成功后，再次请求MD5，会有E63001错误。   
-***request: MD5: [responsed]    
-***[3] Server: 认证失败。   
-***E63100: 无效认证客户端版本  
