@@ -67,7 +67,6 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 	pcap_t	*adhandle;				// net adapter handler
 	uint8_t	MAC[6];
 	char	FilterStr[100];
-	char	cmd[30];
 	struct  bpf_program fcode;
 	int 	DefaultTimeout = 1000;	//设置接收超时参数，单位ms
 	char	errbuf[PCAP_ERRBUF_SIZE];
@@ -90,7 +89,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 
 	/* 设置过滤器：
 	 * 初始情况，只捕获发往本机的802.1X认证会话，不接收多播信息(避免误捕获其他客户端发出的多播信息)
-	 * 进入循环体前可以重设过滤器，那时再开始接收多播信息 
+	 * 进入循环体前可以重设过滤器，那时再开始接收多播信息
 	 */
 	sprintf(FilterStr, "(ether proto 0x888e) and (ether dst host %02x:%02x:%02x:%02x:%02x:%02x)",
 				MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
@@ -146,7 +145,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 				DstMAC[0], DstMAC[1], DstMAC[2], DstMAC[3], DstMAC[4], DstMAC[5]);
 
 		DispatchRequest(UserName, Password, DeviceName,
-						adhandle, ethhdr, captured);
+				adhandle, ethhdr, captured);
 
 		/* 重设过滤器，'只捕获'华为802.1X认证设备发来的包
 		 *（包括多播Request Identity / Request AVAILABLE
@@ -167,11 +166,11 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			}
 			printf("\n");
 			/* 根据收到的Request，回复相应的Response包 */
-			switch( (EAP_Code)captured[18] ) 
+			switch( (EAP_Code)captured[18] )
 			{
 			case REQUEST: /* 请求包 */
 				DispatchRequest(UserName, Password, DeviceName,
-								adhandle, ethhdr, captured);
+						adhandle, ethhdr, captured);
 				if(!pass_identify)
 				{// 上一次认证成功后程序异常退出，没有注销。下次有可能跳过认证阶段。
 					pass_identify = 1;
@@ -295,7 +294,7 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	response[14] = 0x1;		// 802.1X Version 1
 	response[15] = 0x0;		// Type=0 (EAP Packet)
 	//response[16~17]留空，Length，最后填
-	
+
 	/* Extensible Authentication Protocol */
 	response[18] = (EAP_Code) RESPONSE;	// Code
 	response[19] = request[19];			// ID
@@ -376,7 +375,7 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	assert(40 + usernamelen <= sizeof(response));
 
 	/* 发送 */
-    pcap_sendpacket(handle, response, 40 + usernamelen);
+	pcap_sendpacket(handle, response, 40 + usernamelen);
 }
 
 /* 保持在线，上传客户端版本号及本地IP地址 */
@@ -520,9 +519,9 @@ void GetDeviceMac(uint8_t mac[6], const char *devicename)
 {
 	int	sock;
 	struct ifreq ifreq;
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
 	strcpy(ifreq.ifr_name, devicename);
-    if(ioctl(sock, SIOCGIFHWADDR, &ifreq)==0)
+	if(ioctl(sock, SIOCGIFHWADDR, &ifreq)==0)
 	{
 		mac[0]=(uint8_t)ifreq.ifr_hwaddr.sa_data[0];
 		mac[1]=(uint8_t)ifreq.ifr_hwaddr.sa_data[1];
