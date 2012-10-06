@@ -103,8 +103,6 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		const uint8_t *captured;
 		uint8_t	ethhdr[14] = {0};	// ethernet frame header
 
-		int pass_identify = 0;
-
 		/* 主动发起认证会话 */
 		SendStartPkt(adhandle, MAC);
 		/* 等待认证服务器的回应 */
@@ -171,14 +169,8 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 			case REQUEST: /* 请求包 */
 				DispatchRequest(UserName, Password, DeviceName,
 						adhandle, ethhdr, captured);
-				if(!pass_identify)
-				{// 上一次认证成功后程序异常退出，没有注销。下次有可能跳过认证阶段。
-					pass_identify = 1;
-					RunDHCP(DeviceName);
-				}
 				break;
 			case SUCCESS: /* 成功包 */
-				pass_identify = 1;
 				RunDHCP(DeviceName);
 				break;
 			case FAILURE: /* 失败包 */
