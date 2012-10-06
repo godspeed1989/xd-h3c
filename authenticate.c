@@ -4,7 +4,7 @@ const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC�
 const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
 
 const char H3C_VERSION[]	=	"EN V3.60-6303";	// 华为客户端版本号
-const char H3C_KEY[]		=	"HuaWei3COM1X";		// H3C的固定密钥
+const char H3C_KEY[]		=	"HuaWei3COM1X";	// H3C的固定密钥
 static uint8_t DstMAC[6];	//服务端MAC地址
 
 static int logoff = 0;
@@ -25,7 +25,7 @@ void RunDHCP(const char *DeviceName)
 void DispatchRequest(char *UserName, char *Password, char *DeviceName,
 					 pcap_t	*adhandle, uint8_t ethhdr[14], const uint8_t *captured)
 {
-	uint8_t	ip[4] = {0};	// IP address
+	uint8_t ip[4] = {0};	// IP address
 	fprintf(stdout, "Server: Request [%d]\t", captured[19]);
 	switch ((EAP_Type)captured[22])
 	{
@@ -64,10 +64,10 @@ void DispatchRequest(char *UserName, char *Password, char *DeviceName,
  */
 int Authentication(char *UserName, char *Password, char *DeviceName)
 {
-	pcap_t	*adhandle;				// net adapter handler
-	uint8_t	MAC[6];
+	uint8_t MAC[6];
+	pcap_t	*adhandle;
 	char	FilterStr[100];
-	struct  bpf_program fcode;
+	struct	bpf_program fcode;
 	int 	DefaultTimeout = 1000;	//设置接收超时参数，单位ms
 	char	errbuf[PCAP_ERRBUF_SIZE];
 
@@ -101,7 +101,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		int ret, cnt;
 		struct pcap_pkthdr *header;
 		const uint8_t *captured;
-		uint8_t	ethhdr[14] = {0};	// ethernet frame header
+		uint8_t ethhdr[14] = {0};	// ethernet frame header
 
 		/* 主动发起认证会话 */
 		SendStartPkt(adhandle, MAC);
@@ -145,9 +145,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		DispatchRequest(UserName, Password, DeviceName,
 				adhandle, ethhdr, captured);
 
-		/* 重设过滤器，'只捕获'华为802.1X认证设备发来的包
-		 *（包括多播Request Identity / Request AVAILABLE
-		 */
+		/* 重设过滤器，只捕获华为802.1X认证设备发来的包 */
 		sprintf(FilterStr, "(ether proto 0x888e) and (ether src host %02x:%02x:%02x:%02x:%02x:%02x)",
 				DstMAC[0], DstMAC[1], DstMAC[2], DstMAC[3], DstMAC[4], DstMAC[5]);
 		pcap_compile(adhandle, &fcode, FilterStr, 1, 0xff);
@@ -156,7 +154,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 		/* 进入循环体 */
 		while(!logoff && GetNetState(DeviceName) != -1)
 		{
-			/* 捕获数据包，直到成功捕获到一个数据包后再跳出*/
+			/* 捕获数据包，直到成功捕获到一个数据包后再跳出 */
 			while (pcap_next_ex(adhandle, &header, &captured) != 1)
 			{
 				fprintf(stdout, ".");
@@ -210,7 +208,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 }
 
 /* 发送EAP-START开始认证包 */
-void SendStartPkt(pcap_t *handle, const uint8_t* MAC)
+void SendStartPkt(pcap_t *handle, const uint8_t MAC[6])
 {
 	uint8_t packet[18];
 
@@ -272,10 +270,9 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 										const uint8_t ip[4],
 										const char* username)
 {
-	size_t i;
-	uint8_t	response[128];
+	size_t i, usernamelen;
+	uint8_t response[128];
 	uint16_t eaplen;
-	int usernamelen;
 
 	assert((EAP_Code)request[18] == REQUEST);
 	assert((EAP_Type)request[22] == IDENTITY);
@@ -283,8 +280,8 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	/* fill ethernet frame header */
 	memcpy(response, ethhdr, 14);
 
-	response[14] = 0x1;		// 802.1X Version 1
-	response[15] = 0x0;		// Type=0 (EAP Packet)
+	response[14] = 0x1;	// 802.1X Version 1
+	response[15] = 0x0;	// Type=0 (EAP Packet)
 	//response[16~17]留空，Length，最后填
 
 	/* Extensible Authentication Protocol */
@@ -295,11 +292,16 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
 	response[22] = (EAP_Type) IDENTITY;	// Type
 	/* Type-Data */
 	i = 23;
-	response[i++] = 0x15;	  // 上传IP地址
-	response[i++] = 0x04;	  //
-	memcpy(response+i, ip, 4);//
+	response[i++] = 0x15;	// 上传IP地址
+	response[i++] = 0x04;
+	memcpy(response+i, ip, 4);
 	i += 4;
-
+	response[i++] = 0x06;	// 携带版本号
+	response[i++] = 0x07;
+	FillBase64Area(response+i);
+	i += 28;
+	response[i++] = ' ';	// 两个空格符
+	response[i++] = ' ';	//
 	usernamelen = strlen(username); //末尾添加用户名
 	memcpy(response+i, username, usernamelen);
 	i += usernamelen;
@@ -332,7 +334,7 @@ void FillMD5Area(uint8_t* digest, uint8_t id,
 }
 
 /* 回应MD5类型的请求，返回加密后的密码，用户名 */
-void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
+void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t ethhdr[14],
 								 const char* username, const char* passwd)
 {
 	uint16_t eaplen;
@@ -349,9 +351,9 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 	memcpy(response, ethhdr, 14);
 
 	/* EAPOL (1+1+2) */
-	response[14] = 0x1; // 802.1X Version 1
-	response[15] = 0x0; // Type=0 (EAP Packet)
-	memcpy(response+16, &eaplen, sizeof(eaplen)); // Length
+	response[14] = 0x1;	// 802.1X Version 1
+	response[15] = 0x0;	// Type=0 (EAP Packet)
+	memcpy(response+16, &eaplen, sizeof(eaplen));
 
 	/* EAP Extensible Authentication Protocol (6+16) */
 	response[18] = (EAP_Code) RESPONSE; // Code
@@ -372,7 +374,7 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t* ethhdr,
 
 /* 保持在线，上传客户端版本号及本地IP地址 */
 void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
-						const uint8_t* ethhdr, const uint8_t ip[4],
+						const uint8_t ethhdr[14], const uint8_t ip[4],
 						const char* username)
 {
 	int i, usernamelen;
@@ -380,7 +382,7 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	uint8_t response[128];
 
 	assert((EAP_Code)request[18] == REQUEST);
-	assert((EAP_Code)request[22] == AVAILIABLE);
+	assert((EAP_Type)request[22] == AVAILIABLE);
 
 	/* Fill Ethernet frame header */
 	memcpy(response, ethhdr, 14);
@@ -397,15 +399,15 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
 	i = 23;
 	response[i++] = 0x00;		// 上报是否使用代理
 	response[i++] = 0x15;		// 上传IP地址
-	response[i++] = 0x04;		//
-	memcpy(response+i, ip, 4);	//
+	response[i++] = 0x04;
+	memcpy(response+i, ip, 4);
 	i += 4;
 	response[i++] = 0x06;		// 携带版本号
 	response[i++] = 0x07;
 	FillBase64Area(response+i);
 	i += 28;
 	response[i++] = ' ';		// 两个空格符
-	response[i++] = ' ';		// 
+	response[i++] = ' '; 
 	usernamelen = strlen(username);
 	memcpy(response+i, username, usernamelen);
 	i += usernamelen;
@@ -441,7 +443,8 @@ void FillWindowsVersionArea(uint8_t area[20])
 }
 
 /* 回应Notitfication类型的请求，返回客户端版本和操作系统版本 */
-void ResponseNotification(pcap_t *handle, const uint8_t request[], const uint8_t ethhdr[])
+void ResponseNotification(pcap_t *handle, const uint8_t* request,
+										const uint8_t ethhdr[14])
 {
 	int i;
 	uint8_t	response[67];
@@ -533,10 +536,9 @@ void GetDeviceMac(uint8_t mac[6], const char *devicename)
 /* 获取网络状态：网线是否插好 */
 int GetNetState(char *devicename)
 {
-	char buffer[BUFSIZ];
 	FILE *read_fp;
 	int chars_read, ret;
-	char command[100];
+	char command[100], buffer[BUFSIZ];
 	strcpy(command,"sudo ifconfig ");
 	strcat(command, devicename);
 	strcat(command," | grep RUNNING");
@@ -579,7 +581,7 @@ void FillClientVersionArea(uint8_t area[20])
 }
 
 /* 按照Base64编码将20字节加密过的H3C版本号信息转换为28字节ASCII字符 */
-void FillBase64Area(char area[])
+void FillBase64Area(uint8_t area[28])
 {
 	int	i, j;
 	uint8_t	c1, c2, c3;
