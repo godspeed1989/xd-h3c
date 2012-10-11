@@ -184,6 +184,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
 					fprintf(stdout, "E63100->无效认证客户端版本\n");
 					fprintf(stdout, "E2542->该用户帐号已经在别处登录\n");
 					fprintf(stdout, "E63018->用户不存在或者没有申请该服务\n");
+					fprintf(stdout, "E63022->用户已经在别处上线\n");
 				}
 				fprintf(stderr, "+\n+\n重新开始认证......\n");
 				goto START_AUTHENTICATION;
