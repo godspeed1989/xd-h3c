@@ -1,22 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <assert.h>
 #include <time.h>
-#include <gcrypt.h>
+
 #include <pcap.h>
 
 #include <unistd.h>
-#include <sys/wait.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #include <arpa/inet.h>
-#include <signal.h>
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 /* 802.1X报文结构 */
 typedef enum {REQUEST=1, RESPONSE=2, SUCCESS=3, FAILURE=4, H3CDATA=10} EAP_Code;

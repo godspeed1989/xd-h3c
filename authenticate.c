@@ -1,4 +1,5 @@
 ﻿#include "authenticate.h"
+#include "md5/md5.h"
 
 const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
 const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
@@ -337,7 +338,11 @@ void FillMD5Area(uint8_t* digest, uint8_t id,
 	msgbuf[0] = id;
 	memcpy(msgbuf+1, passwd, passlen);
 	memcpy(msgbuf+1+passlen, srcMD5, 16);
-	gcry_md_hash_buffer(GCRY_MD_MD5, digest, msgbuf, msglen);
+	// calculate MD5 digest
+	md5_state_t state;
+	md5_init(&state);
+	md5_append(&state, (const md5_byte_t *)msgbuf, msglen);
+	md5_finish(&state, digest);
 }
 
 /* 回应MD5类型的请求，返回加密后的密码，用户名 */
