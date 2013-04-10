@@ -2,7 +2,7 @@ xd-h3c
 ======
 xd-h3c是适用于西电北校区的 h3c UNIX/Linux 下上网客户端。    
 当然，iNode也可以用，但是，难道不起动X就不可以上网吗？    
-I use it every day now, need your test!!!    
+I use it every day now!!!    
 
 CONTACT
 =======
@@ -10,9 +10,8 @@ godspeed1989@gmail.com
 
 DEPENDENCY
 =========
-安装依赖库 libpcap 和 libgcrypt：   
+安装依赖库 libpcap：   
 $ sudo apt-get install libpcap-dev    
-$ sudo apt-get install libgcrypt-dev    
 
 COMMAND
 =======
