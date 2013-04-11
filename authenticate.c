@@ -1,4 +1,4 @@
-﻿#include "authenticate.h"
+#include "authenticate.h"
 #include "md5/md5.h"
 
 const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
