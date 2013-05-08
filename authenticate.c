@@ -34,6 +34,7 @@ void PrintErrTypes()
 	fprintf(stdout, "E63018->用户不存在或者没有申请该服务\n");
 	fprintf(stdout, "E63022->用户已经在别处上线\n");
 	fprintf(stdout, "E63025->MAC地址绑定错误\n");
+	fprintf(stdout, "E63032->用户密码错误\n");
 }
 
 void DispatchRequest(char *UserName, char *Password, char *DeviceName,
