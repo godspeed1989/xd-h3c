@@ -43,11 +43,12 @@ int main(int argc,char *argv[])
 	int c = 0, i, j;
 	int opt;
 	opterr = 0;
-	//注册退出事件函数d
+	//注册退出事件函数
 	sigemptyset(&act.sa_mask);
 	act.sa_sigaction = exit_handler;
 	act.sa_flags = SA_SIGINFO;
-	if(sigaction(SIGINT, &act, NULL)==-1) {
+	if(sigaction(SIGINT, &act, NULL))
+	{
 		perror("sigaction");
 		return -1;
 	}
@@ -69,7 +70,7 @@ int main(int argc,char *argv[])
 		{"password", 0, NULL, 'p'},
 		{"device", 0, NULL, 'n'},
 		{"logoff", 0, NULL, 'l'},       
-		{NULL, 0, NULL, 0},
+		{ NULL, 0, NULL, 0},
 	};
 	//命令行包含的选项
 	static const char *options="u::p::n::l::h";
@@ -318,3 +319,4 @@ int checkprocess()
 		exit(1);
 	}
 }
+

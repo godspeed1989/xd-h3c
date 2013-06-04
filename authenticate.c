@@ -4,7 +4,7 @@
 const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
 const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
 
-const char H3C_VERSION[]	=	"EN V3.60-6303";	// 华为客户端版本号
+const char H3C_VERSION[]	=	"EN V3.60-6303";// 客户端版本号
 const char H3C_KEY[]		=	"HuaWei3COM1X";	// H3C的固定密钥
 static uint8_t DstMAC[6];	//服务端MAC地址
 
@@ -15,7 +15,7 @@ void RunDHCP(const char *DeviceName)
 {
 	char cmd[32];
 	fprintf(stdout, "------开始运行DHCP服务获取IP------\n");
-	//TODO: detect the exist dhclient and exit them
+	//TODO: detect the existing dhclient and exit them
 	strcpy(cmd, "sudo dhclient ");
 	strcat(cmd, DeviceName);
 	strcat(cmd, " &");
@@ -578,7 +578,7 @@ void FillClientVersionArea(uint8_t area[20])
 	uint32_t random;
 	char RandomKey[8+1];
 
-	random = (uint32_t) time(NULL);    // 注：可以选任意32位整数
+	random = (uint32_t) time(NULL);		// 注：可以选任意32位整数
 	sprintf(RandomKey, "%08x", random);// 生成RandomKey[]字符串
 
 	/* 第一轮异或运算，以RandomKey为密钥加密16字节 */
