@@ -27,7 +27,7 @@ COMMAND
 Usage：
 
 ```
-	sudo ./xdh3c -u [用户名] -p [密码] -d [网卡名称]
+	sudo ./xdh3c -u [用户名] -p [密码] -n [网卡名称]
 ```
 
 使用 ./xdh3c -u 按照提示输入。   
