@@ -103,6 +103,8 @@ int main(int argc,char *argv[])
 				{
 					username = (char*)malloc(100);
 					strcpy(username, argv[optind]);
+					//clean argv[]
+					strcpy(argv[optind], "*****");
 					getPassword();
 					getDevice();
 				}
@@ -110,6 +112,8 @@ int main(int argc,char *argv[])
 				{
 					username = (char *)malloc(100);
 					strcpy(username, argv[optind]);
+					//clean argv[]
+					strcpy(argv[optind], "*****");
 				}
 			}
 			break;
@@ -135,13 +139,17 @@ int main(int argc,char *argv[])
 			{
 				password=(char *)malloc(100);
 				strcpy(password,argv[optind]);
+				//clean argv[]
+				strcpy(argv[optind], "*");
 				getDevice();
 			}
 			else
 			{
 				password = (char *)malloc(100);
 				strcpy(password,argv[optind]);
-			}
+				//clean argv[]
+				strcpy(argv[optind], "*****");
+		}
 			break;
 			//网卡名称 
 			case 'n':
