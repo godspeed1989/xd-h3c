@@ -104,7 +104,7 @@ int main(int argc,char *argv[])
 					username = (char*)malloc(100);
 					strcpy(username, argv[optind]);
 					//clean argv[]
-					strcpy(argv[optind], "*****");
+					strncpy(argv[optind], "*****", strlen(argv[optind]));
 					getPassword();
 					getDevice();
 				}
@@ -113,7 +113,7 @@ int main(int argc,char *argv[])
 					username = (char *)malloc(100);
 					strcpy(username, argv[optind]);
 					//clean argv[]
-					strcpy(argv[optind], "*****");
+					strncpy(argv[optind], "*****", strlen(argv[optind]));
 				}
 			}
 			break;
@@ -137,10 +137,10 @@ int main(int argc,char *argv[])
 			}
 			else if(argv[optind+1]==NULL)
 			{
-				password=(char *)malloc(100);
-				strcpy(password,argv[optind]);
+				password = (char *)malloc(100);
+				strcpy(password, argv[optind]);
 				//clean argv[]
-				strcpy(argv[optind], "*");
+				strncpy(argv[optind], "*****", strlen(argv[optind]));
 				getDevice();
 			}
 			else
@@ -148,8 +148,8 @@ int main(int argc,char *argv[])
 				password = (char *)malloc(100);
 				strcpy(password,argv[optind]);
 				//clean argv[]
-				strcpy(argv[optind], "*****");
-		}
+				strncpy(argv[optind], "*****", strlen(argv[optind]));
+			}
 			break;
 			//网卡名称 
 			case 'n':
@@ -230,7 +230,7 @@ void print_help()
 void getUserName()
 {
 	char temp[100];
-	username=(char *)malloc(100);
+	username = (char *)malloc(100);
 GetUserName:
 	printf("请输入用户名：");
 	setbuf(stdin,NULL);	//清除缓冲区(Linux),Windows下可以使用fflush或者rewind。 
