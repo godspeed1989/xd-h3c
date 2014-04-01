@@ -203,7 +203,7 @@ int main(int argc,char *argv[])
        
 	if((strlen(username)!=0)&&(strlen(password)!=0)&&(strlen(devicename)!=0))
 	{
-		//printf("%s %s %s\n",username,password,devicename);
+	//	printf("%s %s %s\n",username,password,devicename);
 		Authentication(username,password,devicename);
 	}
 	else
