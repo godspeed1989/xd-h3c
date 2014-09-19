@@ -549,27 +549,19 @@ void GetDeviceMac(uint8_t mac[6], const char *devicename)
 /* 获取网络状态：网线是否插好 */
 int GetNetState(const char *nic_name)
 {
-    FILE *read_fp;
-    int chars_read, ret;
-    char command[100], buffer[BUFSIZ];
-    strcpy(command,"sudo ifconfig ");
-    strcat(command, nic_name);
-    strcat(command," | grep RUNNING");
-    memset(buffer, 0, BUFSIZ);
+    struct ifreq ifr;
+    int skfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (skfd < 0)
+        return -1;
 
-    read_fp = popen(command , "r");
-    if(read_fp != NULL)
+    strcpy(ifr.ifr_name, nic_name);
+    if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0)
     {
-        chars_read = fread(buffer, sizeof(char), BUFSIZ-1, read_fp);
-        if (chars_read > 0)
-            ret = 1;
-        else
-            ret = -1;
-        pclose(read_fp);
+        close(skfd);
+        return -1;
     }
-    else
-        ret = -1;
-    return ret;
+    close(skfd);
+    return (ifr.ifr_flags & IFF_RUNNING)? 0 : -1;
 }
 
 /* 生成20字节加密过的H3C版本号信息 */
