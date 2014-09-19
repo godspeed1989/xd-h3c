@@ -26,22 +26,22 @@ void SendStartPkt(pcap_t *adhandle, const uint8_t MAC[6]);
 
 /* 回应Identity类型的请求，返回IP和用户名 */
 void ResponseIdentity(pcap_t *adhandle, const uint8_t* request,
-										const uint8_t ethhdr[14],
-										const uint8_t ip[4],
-										const char* username);
+                                        const uint8_t ethhdr[14],
+                                        const uint8_t ip[4],
+                                        const char* username);
 /* 回应MD5类型的请求，返回加密后的密码，用户名 */
 void ResponseMD5(pcap_t *adhandle, const uint8_t* request,
-								   const uint8_t ethhdr[14],
-								   const char* username,
-								   const char* passwd);
+                                   const uint8_t ethhdr[14],
+                                   const char* username,
+                                   const char* passwd);
 /* 回应Notitfication类型的请求，返回客户端版本和操作系统版本 */
-void ResponseNotification(pcap_t *handle, const uint8_t* request, 
-										  const uint8_t ethhdr[14]);
+void ResponseNotification(pcap_t *handle, const uint8_t* request,
+                                          const uint8_t ethhdr[14]);
 /* 保持在线，上传客户端版本号及本地IP地址 */
 void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
-										const uint8_t ethhdr[14],
-										const uint8_t ip[4],
-										const char* username);
+                                        const uint8_t ethhdr[14],
+                                        const uint8_t ip[4],
+                                        const char* username);
 /* 生成20字节加密过的H3C版本号信息 */
 void FillClientVersionArea(uint8_t area[20]);
 /* 按照Base64编码将20字节加密过的H3C版本号信息转换为28字节ASCII字符 */
@@ -50,15 +50,15 @@ void FillBase64Area(uint8_t area[28]);
 void FillWindowsVersionArea(uint8_t area[20]);
 /* 生成16字节的MD5信息 */
 void FillMD5Area(uint8_t* digest, uint8_t id,
-				 const char* passwd, const uint8_t* srcMD5);
+                 const char* passwd, const uint8_t* srcMD5);
 
 /* 发送下线通知 */
-void SendLogoffPkt(char *DeviceName);
+void SendLogoffPkt(const char *DeviceName);
 
 /* 获取设备的MAC地址 */
 void GetDeviceMac(uint8_t mac[6], const char *DeviceName);
 /* 从MAC地址获取IP */
 void GetIpFromDevice(uint8_t ip[4], const char* DeviceName);
 /* 获取网络状态：网线是否插好 */
-int GetNetState(char *devicename);
+int GetNetState(const char *nic_name);
 
