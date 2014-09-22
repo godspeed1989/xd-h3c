@@ -1,6 +1,5 @@
 CC=gcc
 BIN=xdh3c
-LIBS= -lpcap -lm
 CFLAGS=-Wall
 INSTALL=install
 RM=rm
@@ -17,7 +16,7 @@ md5.o: ./md5/md5.c
 	$(CC) $(CFLAGS) -c $<
 
 $(BIN): xd_h3c.o authenticate.o md5.o
-	$(CC) $(CFLAGS) $+ $(LIBS) -o $@
+	$(CC) $(CFLAGS) $+ -o $@
 
 install:
 	$(INSTALL) -d /usr/local/bin
