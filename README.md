@@ -10,7 +10,8 @@ godspeed1989@gmail.com
 
 INSTALL
 =======
-安装依赖库 libpcap
+安装依赖库 libpcap    
+如果安装遇到问题，请使用`with_no_pcap`分支的版本
 
 ```
 sudo apt-get install libpcap-dev

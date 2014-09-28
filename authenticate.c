@@ -4,9 +4,9 @@
 const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
 const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
 
-const char H3C_VERSION[]    =    "EN V3.60-6303"; // 客户端版本号
+const char H3C_VERSION[]    =    "EN V5.20-0408"; // 客户端版本号
 const char H3C_KEY[]        =    "HuaWei3COM1X";  // H3C的固定密钥
-static uint8_t DstMAC[6];                         //服务端MAC地址
+static uint8_t DstMAC[6];                         // 服务端MAC地址
 
 static int logoff = 0;
 
