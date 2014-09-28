@@ -4,7 +4,7 @@
 const uint8_t BroadcastAddr[6] = {0xff,0xff,0xff,0xff,0xff,0xff}; // 广播MAC地址
 const uint8_t MulticastAddr[6] = {0x01,0x80,0xc2,0x00,0x00,0x03}; // 多播MAC地址
 
-const char H3C_VERSION[]    =    "EN V3.60-6303"; // 客户端版本号
+const char H3C_VERSION[]    =    "EN V5.20-0408"; // 客户端版本号
 const char H3C_KEY[]        =    "HuaWei3COM1X";  // H3C的固定密钥
 static uint8_t DstMAC[6];                         //服务端MAC地址
 
@@ -38,7 +38,7 @@ void PrintErrTypes()
 }
 
 void DispatchRequest(char *UserName, char *Password, char *DeviceName,
-                     pcap_t *adhandle, uint8_t ethhdr[14], const uint8_t *captured)
+                     int fd, uint8_t ethhdr[14], const uint8_t *captured)
 {
     uint8_t ip[4] = {0};
     fprintf(stdout, "Server: Request [%d]\t", captured[19]);
@@ -46,23 +46,23 @@ void DispatchRequest(char *UserName, char *Password, char *DeviceName,
     {
         case NOTIFICATION:
             fprintf(stdout, "Notification!");
-            ResponseNotification(adhandle, captured, ethhdr);
+            ResponseNotification(fd, captured, ethhdr);
             fprintf(stdout, "\t\t[responsed]\n");
             break;
         case AVAILIABLE:
             fprintf(stdout, "Availiable!");
-            ResponseAvailiable(adhandle, captured, ethhdr, ip, UserName);
+            ResponseAvailiable(fd, captured, ethhdr, ip, UserName);
             fprintf(stdout, "\t\t[responsed]\n");
             break;
         case IDENTITY:
             fprintf(stdout, "Identity!");
             GetIpFromDevice(ip, DeviceName);
-            ResponseIdentity(adhandle, captured, ethhdr, ip, UserName);
+            ResponseIdentity(fd, captured, ethhdr, ip, UserName);
             fprintf(stdout, "\t\t[responsed]\n");
             break;
         case MD5:
             fprintf(stdout, "MD5!\t");
-            ResponseMD5(adhandle, captured, ethhdr, UserName, Password);
+            ResponseMD5(fd, captured, ethhdr, UserName, Password);
             fprintf(stdout, "\t\t[responsed]\n");
             break;
         default:
@@ -79,12 +79,10 @@ void DispatchRequest(char *UserName, char *Password, char *DeviceName,
  */
 int Authentication(char *UserName, char *Password, char *DeviceName)
 {
+    int fd;
     uint8_t MAC[6];
-    pcap_t    *adhandle;
-    char    FilterStr[100];
-    struct    bpf_program fcode;
-    int     DefaultTimeout = 1000;    //设置接收超时参数，单位ms
-    char    errbuf[PCAP_ERRBUF_SIZE];
+    struct ifreq req;
+    struct sockaddr_ll addr;
 
     /* 检查网线是否已插好,网线插口可能接触不良 */
     if(GetNetState(DeviceName)==-1)
@@ -93,10 +91,25 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
         exit(-1);
     }
     /* 打开适配器(网卡) */
-    adhandle = pcap_open_live(DeviceName, 65536, 1, DefaultTimeout, errbuf);
-    if (adhandle == NULL)
+    fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_PAE));
+    if (fd < 0)
     {
-        fprintf(stderr, "%s:%s\n", "适配器(网卡)打开失败", errbuf);
+        fprintf(stderr, "raw socket创建失败\n");
+        exit(-1);
+    }
+    memset(&req, 0, sizeof(struct ifreq));
+    strcpy(req.ifr_name, DeviceName);
+    if (ioctl(fd, SIOCGIFINDEX, &req) < 0)
+    {
+        fprintf(stderr, "获取网卡index失败\n");
+        exit(-1);
+    }
+    memset(&addr, 0, sizeof(struct sockaddr_ll));
+    addr.sll_family = AF_PACKET;
+    addr.sll_ifindex = req.ifr_ifindex;
+    if (bind(fd, (struct sockaddr*)&addr, sizeof(struct sockaddr_ll)) < 0)
+    {
+        fprintf(stderr, "socket bind失败\n");
         exit(-1);
     }
     /* 查询本机MAC地址 */
@@ -106,27 +119,27 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
      * 初始情况，只捕获发往本机的802.1X认证会话，不接收多播信息(避免误捕获其他客户端发出的多播信息)
      * 进入循环体前可以重设过滤器，那时再开始接收多播信息
      */
-    sprintf(FilterStr, "(ether proto 0x888e) and (ether dst host %02x:%02x:%02x:%02x:%02x:%02x)",
-                MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
-    pcap_compile(adhandle, &fcode, FilterStr, 1, 0xff);
-    pcap_setfilter(adhandle, &fcode);
 
     START_AUTHENTICATION:
     {
         int ret, cnt;
-        struct pcap_pkthdr *header;
-        const uint8_t *captured;
-        uint8_t ethhdr[14] = {0};    // ethernet frame header
+        uint8_t captured[1500];
+        uint8_t ethhdr[14] = {0};
 
         /* 主动发起认证会话 */
-        SendStartPkt(adhandle, MAC);
+        SendStartPkt(fd, MAC);
         /* 等待认证服务器的回应 */
         cnt = 0;
         while (!logoff)
         {
-            ret = pcap_next_ex(adhandle, &header, &captured);
-            if (ret==1 && (EAP_Code)captured[18] == REQUEST)
+            ret = recv(fd, captured, sizeof(captured), 0);
+            if (ret > 0 &&
+                ntohs(*(uint16_t*)&captured[12]) == ETH_P_PAE &&
+                !memcmp(&captured[0], MAC, 6) &&
+                (EAP_Code)captured[18] == REQUEST)
+            {
                 break;
+            }
             else
             {
                 if(cnt > 50)
@@ -141,7 +154,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
                     fprintf(stderr, "网卡异常！请检查网卡名称是否正确，网线是否插好！\n");
                     exit(-1);
                 }
-                SendStartPkt(adhandle, MAC);
+                SendStartPkt(fd, MAC);
                 cnt++;
             }
         }
@@ -158,19 +171,15 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
                 DstMAC[0], DstMAC[1], DstMAC[2], DstMAC[3], DstMAC[4], DstMAC[5]);
 
         DispatchRequest(UserName, Password, DeviceName,
-                adhandle, ethhdr, captured);
-
-        /* 重设过滤器，只捕获华为802.1X认证设备发来的包 */
-        sprintf(FilterStr, "(ether proto 0x888e) and (ether src host %02x:%02x:%02x:%02x:%02x:%02x)",
-                DstMAC[0], DstMAC[1], DstMAC[2], DstMAC[3], DstMAC[4], DstMAC[5]);
-        pcap_compile(adhandle, &fcode, FilterStr, 1, 0xff);
-        pcap_setfilter(adhandle, &fcode);
+                        fd, ethhdr, captured);
 
         /* 进入循环体 */
         while(!logoff && GetNetState(DeviceName) != -1)
         {
             /* 捕获数据包，直到成功捕获到一个数据包后再跳出 */
-            while (pcap_next_ex(adhandle, &header, &captured) != 1)
+            while (!( recv(fd, captured, sizeof(captured), 0) > 0 &&
+                      ntohs(*(uint16_t*)&captured[12]) == ETH_P_PAE &&
+                      !memcmp(&captured[0], MAC, 6) ))
             {
                 fprintf(stdout, ".");
                 fflush(stdout);
@@ -181,7 +190,7 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
             {
             case REQUEST: /* 请求包 */
                 DispatchRequest(UserName, Password, DeviceName,
-                        adhandle, ethhdr, captured);
+                                fd, ethhdr, captured);
                 break;
             case SUCCESS: /* 成功包 */
                 RunDHCP(DeviceName);
@@ -213,11 +222,12 @@ int Authentication(char *UserName, char *Password, char *DeviceName)
         }// response loop while
 
     }//START_AUTHENTICATION label
+    close(fd);
     return 0;
 }
 
 /* 发送EAP-START开始认证包 */
-void SendStartPkt(pcap_t *handle, const uint8_t MAC[6])
+void SendStartPkt(int fd, const uint8_t MAC[6])
 {
     uint8_t packet[18];
 
@@ -233,26 +243,43 @@ void SendStartPkt(pcap_t *handle, const uint8_t MAC[6])
     /* 为了兼容不同院校的网络配置，这里发送两遍Start */
     /* 1、广播发送Start包 */
     memcpy(packet, BroadcastAddr, 6);
-    pcap_sendpacket(handle, packet, sizeof(packet));
+    send(fd, packet, sizeof(packet), 0);
     /* 2、多播发送Start包 */
     memcpy(packet, MulticastAddr, 6);
-    pcap_sendpacket(handle, packet, sizeof(packet));    
+    send(fd, packet, sizeof(packet), 0);    
 }
 
 /* 发送下线通知 */
 void SendLogoffPkt(const char *DeviceName)
 {
-    uint8_t packet[18];
-    pcap_t *adhandle;
-    const int DefaultTimeout = 60000;//设置接收超时参数，单位ms
-    char errbuf[PCAP_ERRBUF_SIZE];
+    int fd;
     uint8_t MAC[6];
+    uint8_t packet[18];
+    struct ifreq req;
+    struct sockaddr_ll addr;
+
     logoff = 1;
     printf("\n开始注销。\n");
     /* 打开适配器(网卡) */
-    adhandle = pcap_open_live(DeviceName,65536,1,DefaultTimeout,errbuf);
-    if (adhandle == NULL) {
-        fprintf(stderr, "%s\n", errbuf);
+    fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_PAE));
+    if (fd < 0)
+    {
+        fprintf(stderr, "raw socket创建失败\n");
+        exit(-1);
+    }
+    memset(&req, 0, sizeof(struct ifreq));
+    strcpy(req.ifr_name, DeviceName);
+    if (ioctl(fd, SIOCGIFINDEX, &req) < 0)
+    {
+        fprintf(stderr, "获取网卡index失败\n");
+        exit(-1);
+    }
+    memset(&addr, 0, sizeof(struct sockaddr_ll));
+    addr.sll_family = AF_PACKET;
+    addr.sll_ifindex = req.ifr_ifindex;
+    if (bind(fd, (struct sockaddr*)&addr, sizeof(struct sockaddr_ll)) < 0)
+    {
+        fprintf(stderr, "socket bind失败\n");
         exit(-1);
     }
 
@@ -269,15 +296,16 @@ void SendLogoffPkt(const char *DeviceName)
     packet[16] = packet[17] = 0x00;   // Length=0x0000
 
     /* 发送 */
-    pcap_sendpacket(adhandle, packet, sizeof(packet));
+    send(fd, packet, sizeof(packet), 0);
+    close(fd);
     printf("\n注销成功。\n");
 }
 
 /* 回应Identity类型的请求，返回IP和用户名 */
-void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
-                                        const uint8_t ethhdr[14],
-                                        const uint8_t ip[4],
-                                        const char* username)
+void ResponseIdentity(int fd, const uint8_t* request ,
+                              const uint8_t ethhdr[14],
+                              const uint8_t ip[4],
+                              const char* username)
 {
     size_t i, usernamelen;
     uint8_t response[128];
@@ -322,7 +350,7 @@ void ResponseIdentity(pcap_t *adhandle, const uint8_t* request ,
     memcpy(response+20, &eaplen, sizeof(eaplen));
 
     /* 发送 */
-    pcap_sendpacket(adhandle, response, i);
+    send(fd, response, i, 0);
     return;
 }
 
@@ -347,8 +375,8 @@ void FillMD5Area(uint8_t* digest, uint8_t id,
 }
 
 /* 回应MD5类型的请求，返回加密后的密码，用户名 */
-void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t ethhdr[14],
-                                 const char* username, const char* passwd)
+void ResponseMD5(int fd, const uint8_t* request, const uint8_t ethhdr[14],
+                         const char* username, const char* passwd)
 {
     uint16_t eaplen;
     uint32_t usernamelen;
@@ -382,11 +410,11 @@ void ResponseMD5(pcap_t *handle, const uint8_t* request, const uint8_t ethhdr[14
     assert(40 + usernamelen <= sizeof(response));
 
     /* 发送 */
-    pcap_sendpacket(handle, response, 40 + usernamelen);
+    send(fd, response, 40 + usernamelen, 0);
 }
 
 /* 保持在线，上传客户端版本号及本地IP地址 */
-void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
+void ResponseAvailiable(int fd, const uint8_t* request,
                         const uint8_t ethhdr[14], const uint8_t ip[4],
                         const char* username)
 {
@@ -430,7 +458,7 @@ void ResponseAvailiable(pcap_t* handle, const uint8_t* request,
     memcpy(response+20, &eaplen, sizeof(eaplen));
 
     /* 发送 */
-    pcap_sendpacket(handle, response, i);
+    send(fd, response, i, 0);
 }
 
 /* 使用密钥key[]对数据data[]进行异或加密
@@ -456,7 +484,7 @@ void FillWindowsVersionArea(uint8_t area[20])
 }
 
 /* 回应Notitfication类型的请求，返回客户端版本和操作系统版本 */
-void ResponseNotification(pcap_t *handle, const uint8_t* request,
+void ResponseNotification(int fd, const uint8_t* request,
                           const uint8_t ethhdr[14])
 {
     int     i;
@@ -494,7 +522,7 @@ void ResponseNotification(pcap_t *handle, const uint8_t* request,
     i += 20;
 
     /* 发送 */
-    pcap_sendpacket(handle, response, i);
+    send(fd, response, i, 0);
 }
 
 /* 从MAC地址获取IP */

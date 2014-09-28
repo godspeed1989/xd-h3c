@@ -10,12 +10,6 @@ godspeed1989@gmail.com
 
 INSTALL
 =======
-安装依赖库 libpcap
-
-```
-sudo apt-get install libpcap-dev
-```
-
 编译
 
 ```
