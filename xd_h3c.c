@@ -11,7 +11,7 @@
 
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
 
-    const char DefaultDevName[] = "eth0";
+    const char DefaultDevName[] = "eth0.2";
     char *username;
     char *password;
     char *devicename;
@@ -217,11 +217,11 @@ void print_help()
     printf("选项:\n");
     printf("\t-u\t--username\t\t参数为用户名\n"); 
     printf("\t-p\t--password\t\t参数为密码\n");
-    printf("\t-n\t--device\t\t参数为网卡名，默认为'eth0'\n");
+    printf("\t-n\t--device\t\t参数为网卡名，默认为'eth0.2'\n");
     printf("\t-h\t--help\t\t\t使用方法\n");
     printf("\t-l\t--logoff\t\t注销\n");
     printf("举例:\n");
-    printf("\txdh3c -u abc -p 1234 -n eth0\n");
+    printf("\txdh3c -u abc -p 1234 -n eth0.2\n");
     printf("\t也可直接使用 xdh3c -u 按照提示输入。\n");
     printf("\t使用 Ctrl^C 注销登录并退出程序。\n");
 }
@@ -270,7 +270,7 @@ void getDevice()
     char *temp;
     temp = (char *)malloc(100);
     devicename = (char *)malloc(100);
-    printf("请输入网卡名称（默认为eth0）：");
+    printf("请输入网卡名称（默认为eth0.2）：");
     setbuf(stdin, NULL); //清除缓冲区(Linux),Windows下可以使用fflush或者rewind
     fgets(temp,sizeof(char)*100,stdin);
     if(strlen(temp)==0|| (strlen(temp)==1&&temp[0]=='\n') )
