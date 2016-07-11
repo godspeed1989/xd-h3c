@@ -1,5 +1,5 @@
 CC=gcc
-BIN=xdh3c
+BIN=xd-h3c
 LIBS= -lpcap -lm
 CFLAGS=-Wall
 INSTALL=install

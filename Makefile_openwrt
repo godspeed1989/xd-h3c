@@ -1,0 +1,43 @@
+# Provided by 02xiaoma <454048771@qq.com>
+
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=xd-h3c
+PKG_VERSION:=2014-09-28
+
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=git://github.com/godspeed1989/xd-h3c
+PKG_MAINTAINER:=godspeed1989 <godspeed1989@gmail.com>
+
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
+PKG_SOURCE_SUBDIR:=$(PKG_NAME)
+PKG_SOURCE:=$(PKG_NAME).tar.gz
+PKG_SOURCE_VERSION:=HEAD
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/xd-h3c
+	SECTION:=base
+	CATEGORY:=Network
+	DEPENDS:=+libpcap
+	TITLE:=An XiDian network authentication client
+	#DESCRIPTION:=This variable is obsolete. use the Package/name/description define instead!
+	URL:=https://github.com/godspeed1989/xd-h3c
+endef
+
+define Package/xd-h3c/description
+ An network authentication client,
+ Most usually used in China colleges.
+endef
+
+define Build/Prepare
+	$(call Build/Prepare/Default)
+	$(SED) 's/RunDHCP(Device/\/\/RunDHCP(Device/g' $(PKG_BUILD_DIR)/authenticate.c
+endef
+
+define Package/xd-h3c/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(PKG_NAME) $(1)/usr/sbin/
+endef
+
+$(eval $(call BuildPackage,xd-h3c))
